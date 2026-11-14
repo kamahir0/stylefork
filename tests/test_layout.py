@@ -40,7 +40,7 @@ class LayoutTests(unittest.TestCase):
             self.assertEqual((modern.styles_dir/'base.json').read_bytes(),style_before)
             self.assertEqual(sha256_file(root/'output/theme/turn/test.png'),sha256_file(image))
             self.assertEqual(resolve_aliases('.research/objects/test.png',root),'output/theme/turn/test.png')
-            self.assertEqual(ReviewStore(root).image(review['review_id'],1),root/'output/theme/turn/test.png')
+            self.assertEqual(ReviewStore(root).image(review['review_id'],1),(root/'output/theme/turn/test.png').resolve())
             self.assertTrue((root/'.research/state.json').exists())
             self.assertEqual(json.loads((root/'.stylefork/history/research.json').read_text())['evaluations']['e1']['raw_text'],'human comment')
 
