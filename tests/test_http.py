@@ -14,7 +14,7 @@ class HttpTests(unittest.TestCase):
     def test_loopback_ui_and_style_fork_roundtrip(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace=Workspace(directory);workspace.save_style(style_id='base',name='Base',recipe=recipe())
-            original=(workspace.data/'styles/base.json').read_bytes()
+            original=(workspace.styles_dir/'base.json').read_bytes()
             process=subprocess.Popen([sys.executable,'-u','-m','stylekit','--workspace',directory,'serve','--port','0'],
                                      cwd=Path(__file__).resolve().parents[1],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             try:
@@ -31,7 +31,7 @@ class HttpTests(unittest.TestCase):
                 child=json.load(request('/api/session/'+sid+'/fork',{'style_id':'child','name':'Child','save_intent':'Explicit test save'}))
                 self.assertNotIn('coffee',json.dumps(child['recipe']))
                 self.assertEqual(child['parent_style_id'],'base')
-                self.assertEqual((workspace.data/'styles/base.json').read_bytes(),original)
+                self.assertEqual((workspace.styles_dir/'base.json').read_bytes(),original)
                 with self.assertRaises(urllib.error.HTTPError) as error:request('/api/styles',headers={'Host':'example.com'})
                 self.assertEqual(error.exception.code,403)
                 with self.assertRaises(urllib.error.HTTPError):request('/api/session',{'style_id':'base'},headers={'Origin':'https://example.com'})

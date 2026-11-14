@@ -12,6 +12,9 @@ def main(argv=None):
     sub=p.add_subparsers(dest='cmd',required=True)
     init=sub.add_parser('init');init.add_argument('--import-legacy',action='store_true')
     init.add_argument('--comfy-url',default=None);init.add_argument('--drive-folder',default=None);init.add_argument('--timezone-offset',type=int,default=None)
+    init.add_argument('--comfy-home',default=None);init.add_argument('--kit-home',default=None)
+    migration=sub.add_parser('migrate');migration.add_argument('--apply',action='store_true',help='Copy and verify legacy data; sources are never deleted by this command')
+    history=sub.add_parser('history');history.add_argument('--experiment',default=None)
     serve=sub.add_parser('serve');serve.add_argument('--port',type=int,default=8767)
     style=sub.add_parser('style').add_subparsers(dest='style_cmd',required=True)
     style.add_parser('list');show=style.add_parser('show');show.add_argument('--id',required=True)
@@ -33,7 +36,7 @@ def main(argv=None):
     args=p.parse_args(argv);w=Workspace(args.workspace)
     if args.cmd=='init':
         result=w.init();cfg=w.config()
-        for name,field in [('comfy_url','comfy_url'),('drive_folder','drive_folder_id'),('timezone_offset','timezone_offset_minutes')]:
+        for name,field in [('comfy_url','comfy_url'),('drive_folder','drive_folder_id'),('timezone_offset','timezone_offset_minutes'),('comfy_home','comfy_home'),('kit_home','kit_home')]:
             if getattr(args,name) is not None:cfg[field]=getattr(args,name)
         atomic_write_json(w.data/'config.json',cfg)
         if args.import_legacy:result['import']=w.import_legacy()
@@ -42,6 +45,16 @@ def main(argv=None):
         serve(args.workspace,args.port);return 0
     elif args.cmd=='style':
         result=w.styles() if args.style_cmd=='list' else w.style(args.id) if args.style_cmd=='show' else w.save_style(style_id=args.id,name=args.name,recipe=read_json(args.recipe))
+    elif args.cmd=='migrate':
+        from .migration import migrate
+        result=migrate(args.workspace,apply=args.apply)
+    elif args.cmd=='history':
+        path=w.data/'history/research.json';data=read_json(path) if path.exists() else {}
+        from .migration import resolve_aliases
+        if args.experiment:
+            result={'experiment':data.get('archive',{}).get(args.experiment),'evaluations':[e for e in data.get('evaluations',{}).values() if e.get('experiment_id')==args.experiment]}
+        else:result={'experiments':len(data.get('archive',{})),'evaluations':len(data.get('evaluations',{})),'findings':len(data.get('findings',[])),'tracks':list(data.get('research_tracks',{}))}
+        result=resolve_aliases(result,w.root)
     elif args.cmd=='session':
         if args.session_cmd=='list':result=w.sessions()
         elif args.session_cmd=='create':result=w.create_session(args.style,title=args.title)

@@ -1,5 +1,7 @@
 # 画像制作を一周する
 
+制作プロジェクトのルートは `AGENTS.md / .agents / output / styles / .stylefork` の5項目。キット本体とComfyUIは共通のツール置き場へ分離できる。初期化後はプロジェクト内から `python .agents/stylefork.py ...` を使える。詳しくは [PROJECT_LAYOUT.md](PROJECT_LAYOUT.md) を参照。
+
 ## 1. 作業場所を決める
 
 ソースコードの場所と、画像データの場所を区別する。ランチャーの既定はキット内の `workspace/`。別の場所を使う場合は `python -m stylekit --workspace <path> init` を実行し、以降も同じ `--workspace` を指定する。CLIはキットのフォルダで実行する。

@@ -35,25 +35,29 @@ def check_recipe(recipe, *, legacy=False):
 
 class Workspace:
     def __init__(self,root):
-        self.root=Path(root).resolve();self.data=self.root/'.stylekit'
-        self.output=self.root/('ai/output' if (self.root/'.research/state.json').exists() else 'output')
+        from .layout import paths
+        self.root=Path(root).resolve();self.data,self.output,self.styles_dir=paths(self.root)
 
     def init(self):
         self.data.mkdir(parents=True,exist_ok=True)
         if not (self.data/'config.json').exists():
-            create_json(self.data/'config.json',{'schema_version':1,'comfy_url':'http://127.0.0.1:8188','drive_folder_id':None,'timezone_offset_minutes':None})
+            create_json(self.data/'config.json',{'schema_version':2,'kit_home':str(Path(__file__).resolve().parents[1]),'comfy_home':None,'comfy_url':'http://127.0.0.1:8188','drive_folder_id':None,'timezone_offset_minutes':None})
+        self.output.mkdir(parents=True,exist_ok=True);self.styles_dir.mkdir(parents=True,exist_ok=True)
+        if self.data.name=='.stylefork':
+            from .layout import scaffold
+            scaffold(self.root,self.config())
         return {'workspace':str(self.root),'data':str(self.data),'output':str(self.output)}
 
     def config(self):return read_json(self.data/'config.json') if (self.data/'config.json').exists() else {}
 
     def style(self,style_id):
-        record=read_json(self.data/'styles'/(safe_id(style_id)+'.json'))
+        record=read_json(self.styles_dir/(safe_id(style_id)+'.json'))
         check={k:v for k,v in record.items() if k!='record_sha256'}
         if record.get('record_sha256')!=digest(check) or record.get('recipe_sha256')!=digest(record['recipe']):
             raise ValueError('Saved style integrity check failed: '+style_id)
         return record
 
-    def styles(self):return [self.style(p.stem) for p in sorted((self.data/'styles').glob('*.json'))]
+    def styles(self):return [self.style(p.stem) for p in sorted(self.styles_dir.glob('*.json'))]
 
     def save_style(self, *, style_id, name, recipe, description='', parent_id=None, source=None, legacy=False):
         self.init();safe_id(style_id);check_recipe(recipe,legacy=legacy)
@@ -63,7 +67,7 @@ class Workspace:
                 'parent_style_id':parent_id,'parent_recipe_sha256':parent['recipe_sha256'] if parent else None,
                 'recipe':copy.deepcopy(recipe),'recipe_sha256':digest(recipe),'source':source or {}}
         record['record_sha256']=digest(record)
-        with ResearchLock(self.data/'.style-lock'):create_json(self.data/'styles'/(style_id+'.json'),record)
+        with ResearchLock(self.data/'.style-lock'):create_json(self.styles_dir/(style_id+'.json'),record)
         return record
 
     def import_legacy(self):
@@ -71,7 +75,7 @@ class Workspace:
         state=read_json(self.root/'.research/state.json');created=[];skipped=[]
         for preset_id,preset in state.get('style_presets',{}).items():
             recipe={k:copy.deepcopy(preset[k]) for k in ['style_config','prompt_template']}
-            if (self.data/'styles'/(safe_id(preset_id)+'.json')).exists():
+            if (self.styles_dir/(safe_id(preset_id)+'.json')).exists():
                 if self.style(preset_id)['recipe_sha256']!=digest(recipe):raise ValueError('Legacy preset changed; import with a new style ID: '+preset_id)
                 skipped.append(preset_id);continue
             self.save_style(style_id=preset_id,name=preset['name'],description=preset.get('description',''),recipe=recipe,
@@ -169,7 +173,7 @@ class Workspace:
         if not outputs:raise ValueError('At least one generated image is required')
         recipe=copy.deepcopy(session['working_recipe'])
         if workflow is None:workflow,_=assemble_workflow({'preset_id':session['base_style_id'],**recipe},subject_prompt=session['requirements'],negative_extra=session['negative_extra'],seed=seed)
-        workflow_path=folder/(run_id+'_workflow.json');atomic_write_json(workflow_path,workflow)
+        workflow_path=self.data/'workflows'/(run_id+'.json');atomic_write_json(workflow_path,workflow)
         run={'run_id':run_id,'session_id':session_id,'session_revision':session['revision'],'turn_id':turn_id,
              'style_id':session['base_style_id'],'style_recipe_sha256':session['base_recipe_sha256'],'recipe':recipe,
              'requirements':session['requirements'],'negative_extra':session['negative_extra'],'seed':seed,'created_at':now_iso(),
@@ -185,9 +189,12 @@ class Workspace:
                 result.append({**output,'experiment_id':run['run_id'],'run_id':run['run_id'],'session_id':run['session_id'],
                                'output_index':index,'batch_id':run['turn_id'],
                                'track_id':run['style_id'],'created_at':run['created_at'],'hypothesis':run['requirements']})
-        legacy=self.root/'.research/state.json'
+        legacy=self.data/'history/research.json'
+        if not legacy.exists():legacy=self.root/'.research/state.json'
         if legacy.exists():
             state=read_json(legacy)
+            from .migration import resolve_aliases
+            state=resolve_aliases(state,self.root)
             for exp in reversed(list(state.get('archive',{}).values())):
                 if track_id and exp.get('research_track')!=track_id:continue
                 for index,output in enumerate(exp.get('outputs',[])):
@@ -196,6 +203,10 @@ class Workspace:
                         result.append({**output,'image_path':image_path,'experiment_id':exp['experiment_id'],'output_index':index,
                                        'label':exp['experiment_id'].removeprefix('CAND_'),'batch_id':exp.get('batch_id'),
                                        'track_id':exp.get('research_track'),'created_at':exp.get('created_at'),'hypothesis':exp.get('hypothesis','')})
+        media=self.data/'media.json'
+        if media.exists():
+            present={item['path'] for item in result}
+            result += [item for item in read_json(media) if item['path'] not in present and (not track_id or item.get('track_id')==track_id)]
         return result
 
     def drive_plan(self,turn_id):

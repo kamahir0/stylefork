@@ -17,13 +17,15 @@ VERDICTS = {"": "未評価", "good": "良い", "neutral": "普通", "bad": "微�
 class ReviewStore:
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
-        self.directory = self.root / ".stylekit" / "reviews"
+        from .workspace import Workspace
+        self.directory = Workspace(self.root).data / "reviews"
 
     def _folder(self, review_id: str) -> Path:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", review_id):
             raise ValueError("Invalid review ID")
         legacy = self.root / ".research" / "reviews" / review_id
-        return legacy if legacy.is_dir() else self.directory / review_id
+        current = self.directory / review_id
+        return current if current.is_dir() or not legacy.is_dir() else legacy
 
     def _read(self, path: Path) -> Any:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -77,12 +79,8 @@ class ReviewStore:
     def get(self, review_id: str) -> dict:
         folder = self._folder(review_id)
         review = self._read(folder / "review.json")
-        aliases_path = self.root / ".research" / "path_aliases.json"
-        if aliases_path.exists():
-            aliases = self._read(aliases_path)
-            for item in review["items"]:
-                item["path"] = aliases.get(item["path"], item["path"])
-                item["image_path"] = aliases.get(item["image_path"], item["image_path"])
+        from .migration import resolve_aliases
+        review = resolve_aliases(review,self.root)
         review["draft"] = self._read(folder / "draft.json")
         review["submitted"] = self._read(folder / "feedback.json") if (folder / "feedback.json").exists() else None
         return review

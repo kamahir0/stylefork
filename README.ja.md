@@ -25,6 +25,8 @@ AIエージェントと画像を作り、比較して評価し、気に入った
 
 ## はじめる
 
+制作プロジェクトのルートは **AGENTS.md・.agents・output・styles・.stylefork** に揃えます。画像はoutput、絵柄はstylesへ、ワークフローや評価などは隠し管理フォルダへ保存します。キット本体とComfyUIはプロジェクト外で共有できます。[ディレクトリ構造](docs/PROJECT_LAYOUT.md)を参照してください。
+
 Python 3.10以降とブラウザーがあれば、UIを起動できます。npmやPythonの追加ランタイムパッケージは不要です。
 
 1. [Releases](https://github.com/kamahir0/stylefork/releases) のZIPをダウンロードして展開する。

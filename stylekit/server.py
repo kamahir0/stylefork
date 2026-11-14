@@ -32,7 +32,9 @@ def serve(root,port=8767):
                 if url.path=='/' and 'review' in query:static['/']='index.html'
                 if not post and url.path in static:
                     path=web/static[url.path];self.send(200,path.read_bytes(),(mimetypes.guess_type(path.name)[0] or 'application/octet-stream')+'; charset=utf-8');return
-                if not post and parts==['api','info']:result={'workspace':str(workspace.root),'version':'0.1.0'}
+                if not post and parts==['api','info']:
+                    from . import __version__
+                    result={'workspace':str(workspace.root),'version':__version__}
                 elif not post and parts==['api','styles']:result=workspace.styles()
                 elif not post and parts==['api','sessions']:result=workspace.sessions()
                 elif not post and parts[:2]==['api','session'] and len(parts)==3:result=workspace.session(parts[2])

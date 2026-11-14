@@ -50,17 +50,14 @@ Google Drive is optional. `drive-plan` reports the exact image-only folder layou
 
 ```text
 my-art/
-  .stylekit/
-    styles/       # immutable saved recipes and parent lineage
-    sessions/     # isolated working adjustments and requirements
-    runs/         # recipe, seed, workflow and image provenance
-    reviews/      # numbered sets, drafts and submitted feedback
-    objects/      # preserved image snapshots
-  output/
-    concept-or-thread/
-      date_time_turn-title_id/
-        images and workflow JSON
+  AGENTS.md       # project-bound instructions
+  .agents/        # launcher and project skill
+  output/         # images only, grouped by concept/turn
+  styles/         # immutable reusable style records
+  .stylefork/     # hidden settings, workflows, sessions, reviews and history
 ```
+
+The shared kit and ComfyUI can live outside every creation project. Each project stores `kit_home`, optional `comfy_home`, and `comfy_url` in its hidden configuration. To launch the kit from a project, use `python .agents/stylefork.py serve`. Workflows stay under `.stylefork/workflows/` rather than beside the visible images.
 
 Use a single turn folder for all batches generated in one exchange. Drive image directories mirror the relative hierarchy below `output/`; JSON and research documents remain local. Existing research workspaces with `.research/state.json` can be imported and reviewed without publishing their contents. See [migration](docs/MIGRATION.md).
 

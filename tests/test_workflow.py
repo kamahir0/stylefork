@@ -33,7 +33,7 @@ class WorkflowTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name);self.w=Workspace(self.root);self.w.init()
         self.base=self.w.save_style(style_id='base',name='Base',recipe=recipe())
-        self.base_path=self.w.data/'styles/base.json';self.before=self.base_path.read_bytes()
+        self.base_path=self.w.styles_dir/'base.json';self.before=self.base_path.read_bytes()
 
     def test_generation_requirements_never_change_saved_style_or_other_session(self):
         first=self.w.create_session('base');second=self.w.create_session('base')

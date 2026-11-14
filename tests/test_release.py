@@ -13,7 +13,7 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             fixtures={'README.md':'safe','stylekit/__init__.py':'safe','stylekit/web/index.html':'safe',
-                      '.stylekit/config.json':'private','.research/state.json':'private','workspace/secret.txt':'private',
+                      '.stylekit/config.json':'private','.stylefork/config.json':'private','styles/private.json':'private','.research/state.json':'private','workspace/secret.txt':'private',
                       'output/personal.png':'private','.env':'private','model.safetensors':'private'}
             for name,value in fixtures.items():
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(value,encoding='utf-8')
