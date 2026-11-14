@@ -266,7 +266,7 @@ function showChrome() {
   chromeTimer = setTimeout(() => {
     if (document.activeElement === $('focus-note') || document.activeElement === $('focus-compare')) return;
     $('focus-view').classList.remove('ui-visible');
-  }, 2400);
+  }, 1000);
 }
 
 function renderFilmstrip() {
