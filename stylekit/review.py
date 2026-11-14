@@ -218,8 +218,29 @@ class ReviewStore:
             pass
 
     def image(self, review_id: str, number: int) -> Path:
-        review = self.get(review_id)
+        folder = self._folder(review_id)
+        review = self._read(folder / "review.json")
+        from .migration import resolve_aliases
+        review = resolve_aliases(review, self.root)
         item = next((i for i in review["items"] if i["number"] == number), None)
         if item is None:
             raise ValueError("Unknown image")
+        return self._local_image(item["image_path"])
+
+    def catalog_image(self, experiment_id: str, output_index: int) -> Path:
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,119}", experiment_id):
+            from .workspace import Workspace
+            run_file = Workspace(self.root).data / "runs" / f"{experiment_id}.json"
+            if run_file.is_file():
+                run = self._read(run_file)
+                outputs = run.get("outputs", [])
+                if 0 <= output_index < len(outputs):
+                    out = outputs[output_index]
+                    return self._local_image(out.get("image_path") or out.get("path"))
+        item = next(
+            (i for i in self.catalog() if i["experiment_id"] == experiment_id and i["output_index"] == output_index),
+            None,
+        )
+        if not item:
+            raise FileNotFoundError(experiment_id)
         return self._local_image(item["image_path"])

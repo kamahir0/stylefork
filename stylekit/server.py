@@ -12,10 +12,10 @@ def serve(root,port=8767):
     workspace=Workspace(root);workspace.init();reviews=ReviewStore(root);web=Path(__file__).parent/'web'
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*_):pass
-        def send(self,status,value,mime='application/json; charset=utf-8'):
+        def send(self,status,value,mime='application/json; charset=utf-8',cache='no-store'):
             raw=value if isinstance(value,bytes) else json.dumps(value,ensure_ascii=False).encode()
             self.send_response(status);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(raw)))
-            self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff')
+            self.send_header('Cache-Control',cache);self.send_header('X-Content-Type-Options','nosniff')
             self.send_header('Referrer-Policy','no-referrer');self.end_headers();self.wfile.write(raw)
         def dispatch(self,post=False):
             host=self.headers.get('Host','');expected={f'localhost:{self.server.server_port}',f'127.0.0.1:{self.server.server_port}'}
@@ -60,11 +60,11 @@ def serve(root,port=8767):
                     elif parts[3] in ('draft','submit'):result=reviews.save(parts[2],payload,submit=parts[3]=='submit')
                     else:raise FileNotFoundError()
                 elif not post and parts==['image']:
-                    path=reviews.image(query['review'][0],int(query['number'][0]));self.send(200,path.read_bytes(),mimetypes.guess_type(path.name)[0]);return
+                    path=reviews.image(query['review'][0],int(query['number'][0]))
+                    self.send(200,path.read_bytes(),mimetypes.guess_type(path.name)[0],'private, max-age=86400, immutable');return
                 elif not post and parts==['catalog-image']:
-                    item=next((i for i in reviews.catalog() if i['experiment_id']==query['experiment'][0] and i['output_index']==int(query['index'][0])),None)
-                    if not item:raise FileNotFoundError()
-                    path=reviews._local_image(item['image_path']);self.send(200,path.read_bytes(),mimetypes.guess_type(path.name)[0]);return
+                    path=reviews.catalog_image(query['experiment'][0],int(query['index'][0]))
+                    self.send(200,path.read_bytes(),mimetypes.guess_type(path.name)[0],'private, max-age=86400, immutable');return
                 else:raise FileNotFoundError()
                 self.send(200,result)
             except FileNotFoundError:self.send(404,{'error':'Not found'})

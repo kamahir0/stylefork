@@ -128,36 +128,66 @@ function persist(submit = false) {
   return queue;
 }
 
+const preloaded = new Set();
+function preloadAdjacent() {
+  if (!review?.items?.length) return;
+  const len = review.items.length;
+  for (const offset of [1, -1]) {
+    const item = review.items[(current + offset + len) % len];
+    const url = imageUrl(item);
+    if (!preloaded.has(url)) {
+      preloaded.add(url);
+      const img = new Image();
+      img.src = url;
+    }
+  }
+}
+
 function renderCards(popCurrent = false) {
-  $('cards').replaceChildren();
+  const container = $('cards');
+  if (container.children.length !== review.items.length) {
+    container.replaceChildren();
+    review.items.forEach((item, index) => {
+      const card = document.createElement('button');
+      card.className = 'card';
+      card.setAttribute('aria-label', `${numberText(item)} ${item.label}`);
+      const img = document.createElement('img');
+      img.src = imageUrl(item);
+      img.alt = item.label;
+      img.loading = 'lazy';
+      const caption = document.createElement('span');
+      caption.className = 'caption';
+      const num = document.createElement('strong');
+      num.textContent = numberText(item);
+      const role = document.createElement('span');
+      role.textContent = item.role === 'reference' ? '比較用' : '候補';
+      caption.append(num, role);
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = item.label;
+      const status = document.createElement('span');
+      status.className = 'status';
+      card.append(img, caption, name, status);
+      card.onclick = () => select(index);
+      container.append(card);
+    });
+  }
   review.items.forEach((item, index) => {
     const r = rating(item);
-    const card = document.createElement('button');
-    card.className = 'card' + (index === current ? ' selected' : '');
+    const card = container.children[index];
+    const isCurrent = index === current;
+    card.classList.toggle('selected', isCurrent);
     card.dataset.verdict = r.verdict || '';
-    card.setAttribute('aria-label', `${numberText(item)} ${item.label}`);
-    card.setAttribute('aria-pressed', String(index === current));
-    const img = document.createElement('img');
-    img.src = imageUrl(item);
-    img.alt = item.label;
-    img.loading = 'lazy';
-    const caption = document.createElement('span');
-    caption.className = 'caption';
-    const num = document.createElement('strong');
-    num.textContent = numberText(item);
-    const role = document.createElement('span');
-    role.textContent = item.role === 'reference' ? '比較用' : '候補';
-    caption.append(num, role);
-    const name = document.createElement('span');
-    name.className = 'name';
-    name.textContent = item.label;
-    const status = document.createElement('span');
-    status.className = 'status' + (popCurrent && index === current ? ' pop-anim' : '');
+    card.setAttribute('aria-pressed', String(isCurrent));
+    const status = card.querySelector('.status');
     status.dataset.verdict = r.verdict || '';
-    status.textContent = verdictNames[r.verdict] + (r.note ? ' · メモあり' : '');
-    card.append(img, caption, name, status);
-    card.onclick = () => select(index);
-    $('cards').append(card);
+    const nextText = verdictNames[r.verdict] + (r.note ? ' · メモあり' : '');
+    if (status.textContent !== nextText) status.textContent = nextText;
+    if (popCurrent && isCurrent) {
+      status.classList.remove('pop-anim');
+      void status.offsetWidth;
+      status.classList.add('pop-anim');
+    }
   });
   const candidates = review.items.filter(i => i.role === 'candidate');
   const ratedCandidates = candidates.filter(i => rating(i).verdict || rating(i).note.trim()).length;
@@ -256,6 +286,7 @@ function select(index) {
   $('fork-image').hidden = !(item.run_id && item.session_id);
   renderCards();
   renderVerdicts();
+  preloadAdjacent();
   if (focused) renderFocusImage();
 }
 
@@ -270,24 +301,34 @@ function showChrome() {
 }
 
 function renderFilmstrip() {
-  $('filmstrip').replaceChildren();
+  const strip = $('filmstrip');
+  if (strip.children.length !== review.items.length) {
+    strip.replaceChildren();
+    review.items.forEach((item, index) => {
+      const button = document.createElement('button');
+      button.className = 'film-thumb';
+      button.setAttribute('aria-label', `全画面 ${numberText(item)} ${item.label}`);
+      const img = document.createElement('img');
+      img.src = imageUrl(item);
+      img.alt = item.label;
+      img.loading = 'lazy';
+      const text = document.createElement('span');
+      button.append(img, text);
+      button.onclick = () => { select(index); showChrome(); };
+      strip.append(button);
+    });
+  }
   review.items.forEach((item, index) => {
     const r = rating(item);
-    const button = document.createElement('button');
-    button.className = 'film-thumb' + (index === current ? ' selected' : '');
+    const button = strip.children[index];
+    const isCurrent = index === current;
+    button.classList.toggle('selected', isCurrent);
     button.dataset.verdict = r.verdict || '';
-    button.setAttribute('aria-label', `全画面 ${numberText(item)} ${item.label}`);
-    button.setAttribute('aria-pressed', String(index === current));
-    const img = document.createElement('img');
-    img.src = imageUrl(item);
-    img.alt = item.label;
-    img.loading = 'lazy';
-    const text = document.createElement('span');
+    button.setAttribute('aria-pressed', String(isCurrent));
+    const text = button.querySelector('span');
     const badge = r.verdict ? ` [${verdictNames[r.verdict]}]` : '';
-    text.textContent = `${numberText(item)} ${item.label}${badge}`;
-    button.append(img, text);
-    button.onclick = () => { select(index); showChrome(); };
-    $('filmstrip').append(button);
+    const nextText = `${numberText(item)} ${item.label}${badge}`;
+    if (text.textContent !== nextText) text.textContent = nextText;
   });
 }
 
