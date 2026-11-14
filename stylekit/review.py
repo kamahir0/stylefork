@@ -158,4 +158,3 @@ class ReviewStore:
         if item is None:
             raise ValueError("Unknown image")
         return self._local_image(item["image_path"])
-
