@@ -1,7 +1,46 @@
 "use strict";
 const $ = id => document.getElementById(id);
-let styles = [], session, allRuns = [], allTurns = [], allReviews = [], info;
+let styles = [], session, allRuns = [], allTurns = [], allReviews = [], allSessions = [], info, toastTimer;
 const tokens = text => text.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+
+const themeIcons = {
+  auto: '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>自動</span>',
+  dark: '<svg class="icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>ダーク</span>',
+  light: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg><span>ライト</span>'
+};
+
+function initTheme() {
+  const btn = $('theme-toggle');
+  if (!btn) return;
+  const apply = mode => {
+    if (mode === 'light' || mode === 'dark') {
+      document.documentElement.dataset.theme = mode;
+    } else {
+      delete document.documentElement.dataset.theme;
+      mode = 'auto';
+    }
+    btn.innerHTML = themeIcons[mode] || themeIcons.auto;
+  };
+  let currentMode = localStorage.getItem('stylefork-theme') || 'auto';
+  apply(currentMode);
+  btn.onclick = () => {
+    const order = ['auto', 'dark', 'light'];
+    currentMode = order[(order.indexOf(currentMode) + 1) % order.length];
+    try { localStorage.setItem('stylefork-theme', currentMode); } catch (_) {}
+    apply(currentMode);
+    const names = {auto: 'OS連動', dark: 'ダーク', light: 'ライト'};
+    showToast(`テーマ：${names[currentMode]}`);
+  };
+}
+
+function showToast(message) {
+  const el = $('toast');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 2200);
+}
 
 async function api(path, payload) {
   const response = await fetch(path, payload === undefined ? {} : {
@@ -57,6 +96,7 @@ function showSession(value) {
   $('session-save-status').textContent = '読み込み済み';
   $('fork-result').textContent = '';
   history.replaceState(null, '', '/?session=' + encodeURIComponent(value.session_id));
+  renderSessionList();
   renderRuns();
   renderLineage(base);
 }
@@ -148,14 +188,27 @@ function renderRuns() {
   }
 }
 
+function renderSessionList() {
+  $('session-list').replaceChildren();
+  for (const item of allSessions) {
+    const sessionRuns = allRuns.filter(r => r.session_id === item.session_id);
+    const label = sessionRuns.length ? `${item.title} (${sessionRuns.length}枚)` : item.title;
+    const btn = button(label, async () => {
+      showSession(await api('/api/session/' + encodeURIComponent(item.session_id)));
+    });
+    if (session && session.session_id === item.session_id) btn.classList.add('active');
+    $('session-list').append(btn);
+  }
+}
+
 async function refreshLibrary() {
-  [styles, allRuns, allTurns, allReviews] = await Promise.all([
+  [styles, allRuns, allTurns, allReviews, allSessions] = await Promise.all([
     api('/api/styles'),
     api('/api/runs'),
     api('/api/turns').catch(() => []),
-    api('/api/reviews').catch(() => [])
+    api('/api/reviews').catch(() => []),
+    api('/api/sessions')
   ]);
-  const sessions = await api('/api/sessions');
   $('style-list').replaceChildren();
   for (const style of styles) {
     const card = document.createElement('div');
@@ -173,15 +226,7 @@ async function refreshLibrary() {
     $('style-list').append(card);
   }
   if (!styles.length) $('style-list').textContent = 'まだ絵柄がありません。右上から登録できます。';
-
-  $('session-list').replaceChildren();
-  for (const item of sessions) {
-    const sessionRuns = allRuns.filter(r => r.session_id === item.session_id);
-    const label = sessionRuns.length ? `${item.title} (${sessionRuns.length}枚)` : item.title;
-    $('session-list').append(button(label, async () => {
-      showSession(await api('/api/session/' + encodeURIComponent(item.session_id)));
-    }));
-  }
+  renderSessionList();
 }
 
 async function saveSession() {
@@ -200,6 +245,7 @@ async function saveSession() {
     : '保存済みの絵柄を使用中';
   $('session-save-status').textContent = '作業内容を保存しました';
   $('recipe-preview').textContent = JSON.stringify(session.working_recipe, null, 2);
+  showToast('セッションの作業内容を保存しました');
 }
 
 $('new-style').onclick = () => { $('register-style').showModal(); };
@@ -233,6 +279,7 @@ $('register-submit').onclick = handle(async () => {
   await refreshLibrary();
   showSession(await api('/api/session', {style_id: style.style_id}));
   await refreshLibrary();
+  showToast(`絵柄「${style.name}」を登録しました`);
 });
 
 $('update-session').onclick = handle(saveSession);
@@ -248,16 +295,20 @@ $('fork-style').onclick = handle(async () => {
   await refreshLibrary();
   $('fork-result').textContent = `「${child.name}」を別の絵柄として保存しました。元の絵柄と、このセッションの使用元はそのままです。`;
   $('fork-name').value = '';
+  showToast(`新しい絵柄「${child.name}」を保存しました`);
 });
 
 $('copy-request').onclick = handle(async () => {
   await saveSession();
   const turn = await api('/api/turn', {session_id: session.session_id, title: session.title});
   await navigator.clipboard.writeText(`データワークスペース「${info.workspace}」のセッション ${session.session_id} とターン ${turn.turn_id} を使い、今回の要件に沿って画像を生成してください。最初に AGENTS.md と stylefork-project スキルを確認し、保存済み絵柄 ${session.base_style_id} は変更しないでください。調整はこのセッション内だけに置き、生成後はこのターンの画像と必要な過去画像を番号付きレビューにまとめてください。`);
-  $('copy-request').textContent = '依頼文をコピーしました';
+  const label = $('copy-request-label') || $('copy-request');
+  label.textContent = '依頼文をコピーしました';
+  showToast('エージェントへの依頼文をコピーしました');
 });
 
 (async () => {
+  initTheme();
   info = await api('/api/info');
   await refreshLibrary();
   const id = new URLSearchParams(location.search).get('session');

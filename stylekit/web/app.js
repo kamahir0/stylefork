@@ -1,7 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const verdictNames = {good:'良い', neutral:'普通', bad:'微妙', unsure:'判断困難', '':'未評価'};
-let review, draft, current = 0, catalog = [], timer, queue = Promise.resolve(), generation = 0, savedGeneration = 0;
+let review, draft, current = 0, catalog = [], timer, toastTimer, queue = Promise.resolve(), generation = 0, savedGeneration = 0;
 let conflict = false, focused = false, nativeFullscreen = false, chromeTimer, isDraggingStage = false, syncingScroll = false;
 const scales = {left: 'fit', right: 'fit', focus: 'fit', 'focus-right': 'fit'};
 const savedCenter = {
@@ -12,10 +12,56 @@ const savedCenter = {
 };
 const reviewId = new URLSearchParams(location.search).get('review');
 
+const themeIcons = {
+  auto: '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>自動</span>',
+  dark: '<svg class="icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>ダーク</span>',
+  light: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg><span>ライト</span>'
+};
+
+function initTheme() {
+  const btn = $('theme-toggle');
+  if (!btn) return;
+  const apply = mode => {
+    if (mode === 'light' || mode === 'dark') {
+      document.documentElement.dataset.theme = mode;
+    } else {
+      delete document.documentElement.dataset.theme;
+      mode = 'auto';
+    }
+    btn.innerHTML = themeIcons[mode] || themeIcons.auto;
+  };
+  let currentMode = localStorage.getItem('stylefork-theme') || 'auto';
+  apply(currentMode);
+  btn.onclick = () => {
+    const order = ['auto', 'dark', 'light'];
+    currentMode = order[(order.indexOf(currentMode) + 1) % order.length];
+    try { localStorage.setItem('stylefork-theme', currentMode); } catch (_) {}
+    apply(currentMode);
+    const names = {auto: 'OS連動', dark: 'ダーク', light: 'ライト'};
+    showToast(`テーマ：${names[currentMode]}`);
+  };
+}
+
+function showToast(message) {
+  const el = $('toast');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 2200);
+}
+
+function setSaveStatus(text, state = 'saved') {
+  const el = $('save-status');
+  if (!el) return;
+  el.textContent = text;
+  el.dataset.state = state;
+}
+
 function fail(e) {
   $('error').textContent = e.message || String(e);
   $('error').hidden = false;
-  $('save-status').textContent = '保存できませんでした';
+  setSaveStatus('保存できませんでした', 'error');
 }
 
 async function api(path, data) {
@@ -45,7 +91,7 @@ function hasUnsubmittedChanges() {
 
 function markDirty() {
   generation++;
-  $('save-status').textContent = '保存待ち…';
+  setSaveStatus('保存待ち…', 'dirty');
   renderReceipt();
   clearTimeout(timer);
   timer = setTimeout(() => persist().catch(fail), 650);
@@ -57,7 +103,7 @@ function persist(submit = false) {
     if (conflict) throw new Error('更新が競合しました。入力を控えてからページを再読み込みしてください。');
     if (!submit && generation === savedGeneration) return;
     const sentGeneration = generation;
-    $('save-status').textContent = '保存中…';
+    setSaveStatus('保存中…', 'saving');
     const payload = {revision: draft.revision, ratings: structuredClone(draft.ratings), overall_note: draft.overall_note};
     let result;
     try {
@@ -69,7 +115,12 @@ function persist(submit = false) {
     draft.revision = result.draft.revision;
     savedGeneration = sentGeneration;
     review.submitted = result.submitted;
-    $('save-status').textContent = generation === savedGeneration ? (submit ? '評価を確定しました' : '下書き保存済み') : '保存待ち…';
+    if (generation === savedGeneration) {
+      setSaveStatus(submit ? '評価を確定しました' : '下書き保存済み', 'saved');
+      if (submit) showToast('評価を確定しました');
+    } else {
+      setSaveStatus('保存待ち…', 'dirty');
+    }
     $('error').hidden = true;
     renderReceipt();
   };
@@ -77,7 +128,7 @@ function persist(submit = false) {
   return queue;
 }
 
-function renderCards() {
+function renderCards(popCurrent = false) {
   $('cards').replaceChildren();
   review.items.forEach((item, index) => {
     const r = rating(item);
@@ -101,7 +152,7 @@ function renderCards() {
     name.className = 'name';
     name.textContent = item.label;
     const status = document.createElement('span');
-    status.className = 'status';
+    status.className = 'status' + (popCurrent && index === current ? ' pop-anim' : '');
     status.dataset.verdict = r.verdict || '';
     status.textContent = verdictNames[r.verdict] + (r.note ? ' · メモあり' : '');
     card.append(img, caption, name, status);
@@ -163,6 +214,13 @@ function syncScrollPosition(sourceSide, targetSide) {
   }
 }
 
+function triggerImageTransition(img) {
+  if (!img) return;
+  img.classList.remove('img-enter');
+  void img.offsetWidth;
+  img.classList.add('img-enter');
+}
+
 function select(index) {
   const keepZoom = $('keep-zoom')?.checked;
   if (keepZoom && scales.left !== 'fit') {
@@ -190,6 +248,7 @@ function select(index) {
   $('left-name').textContent = `${numberText(item)} ${item.label}`;
   $('left-image').src = imageUrl(item);
   $('left-image').alt = item.label;
+  triggerImageTransition($('left-image'));
   $('image-note').value = r.note;
   if ($('focus-note')) $('focus-note').value = r.note;
   $('filename').textContent = item.path;
@@ -236,6 +295,7 @@ function renderFocusImage() {
   const item = review.items[current];
   $('focus-image').src = imageUrl(item);
   $('focus-image').alt = item.label;
+  triggerImageTransition($('focus-image'));
   $('focus-name').textContent = `${numberText(item)} ${item.label}`;
   $('focus-counter').textContent = `${current + 1} / ${review.items.length}`;
   if ($('focus-note')) $('focus-note').value = rating(item).note;
@@ -282,12 +342,17 @@ async function enterFocus() {
   showChrome();
 }
 
-function renderVerdicts() {
+function renderVerdicts(popVerdict = null) {
   const currentVerdict = rating(review.items[current]).verdict;
   document.querySelectorAll('[data-verdict]').forEach(b => {
     const active = b.dataset.verdict === currentVerdict;
     b.classList.toggle('active', active);
     b.setAttribute('aria-pressed', String(active));
+    if (popVerdict && b.dataset.verdict === popVerdict) {
+      b.classList.remove('pop-anim');
+      void b.offsetWidth;
+      b.classList.add('pop-anim');
+    }
   });
 }
 
@@ -297,26 +362,27 @@ function setVerdict(verdict) {
   const cur = rating(item);
   const nextVerdict = cur.verdict === verdict ? '' : verdict;
   draft.ratings[n] = {...cur, verdict: nextVerdict};
-  renderVerdicts();
-  renderCards();
+  renderVerdicts(nextVerdict);
+  renderCards(true);
   markDirty();
 }
 
 function renderReceipt() {
   const submitted = review?.submitted;
+  const submitLabel = $('submit-label') || $('submit');
   $('receipt').hidden = !submitted;
   if (!submitted) {
-    $('submit').textContent = '評価を確定';
+    submitLabel.textContent = '評価を確定';
     return;
   }
   const dirtyAfterSubmit = hasUnsubmittedChanges();
   $('receipt').classList.toggle('dirty', dirtyAfterSubmit);
   if (dirtyAfterSubmit) {
     $('receipt-text').textContent = `⚠ 確定後に未反映の編集があります。もう一度「評価を確定」を押すと AI 用ファイルに反映されます。（前回確定：${new Date(submitted.submitted_at).toLocaleString('ja-JP')}）`;
-    $('submit').textContent = '評価を再確定';
+    submitLabel.textContent = '評価を再確定';
   } else {
     $('receipt-text').textContent = `確定済み：${new Date(submitted.submitted_at).toLocaleString('ja-JP')}。確定後の編集は、もう一度「評価を確定」で反映できます。`;
-    $('submit').textContent = '評価を確定';
+    submitLabel.textContent = '評価を確定';
   }
 }
 
@@ -408,6 +474,7 @@ function setCompare(value) {
   if (item) {
     $('right-image').src = imageUrl(item);
     $('right-image').alt = item.label;
+    triggerImageTransition($('right-image'));
     $('right-name').textContent = `${numberText(item)} ${item.label}`;
     if ($('focus-right-image')) {
       $('focus-right-image').src = imageUrl(item);
@@ -446,6 +513,7 @@ function bind() {
         save_intent: `User explicitly saved style from image ${numberText(item)}: ${name}`
       });
       $('image-fork-result').textContent = `「${saved.name}」を新しい絵柄として保存しました。絵柄一覧から使えます。`;
+      showToast(`「${saved.name}」を保存しました`);
     } catch (e) {
       $('save-image-style').disabled = false;
       fail(e);
@@ -623,7 +691,9 @@ function bind() {
     try {
       const info = await api('/api/info');
       await navigator.clipboard.writeText(`データワークスペースは「${info.workspace}」です。StyleForkの画像レビュー ${reviewId} の評価を確定しました。このレビューの提出済みフィードバックを読み取り、次の作業に反映してください。保存済みの絵柄は変更しないでください。`);
-      $('copy').textContent = 'コピーしました';
+      const copyLabel = $('copy-label') || $('copy');
+      copyLabel.textContent = 'コピーしました';
+      showToast('AI への依頼文をコピーしました');
     } catch (e) { fail(e); }
   };
 
@@ -700,6 +770,7 @@ function renderLibrary() {
         renderCards();
         renderCompareOptions();
         renderLibrary();
+        showToast(`「${title.textContent}」を比較用に追加しました`);
       } catch (e) {
         button.disabled = false;
         fail(e);
@@ -718,10 +789,11 @@ function renderLibrary() {
 }
 
 async function init() {
+  initTheme();
   if (!reviewId) {
     $('landing').hidden = false;
     $('add').hidden = $('submit').hidden = $('fullscreen').hidden = true;
-    $('save-status').textContent = '';
+    setSaveStatus('', 'saved');
     const reviews = await api('/api/reviews');
     for (const item of reviews) {
       const a = document.createElement('a');
@@ -734,16 +806,23 @@ async function init() {
       metaDiv.className = 'review-card-meta';
       const itemCount = item.item_count ?? 0;
       const candCount = item.candidate_count ?? itemCount;
+      const ratedCount = item.rated_count ?? 0;
       metaDiv.textContent = `${new Date(item.created_at).toLocaleString('ja-JP')} · 全${itemCount}枚（候補${candCount}枚）`;
-      infoDiv.append(titleStrong, metaDiv);
+      const track = document.createElement('div');
+      track.className = 'review-progress-track';
+      const bar = document.createElement('div');
+      bar.className = 'review-progress-bar';
+      bar.style.width = Math.min(100, Math.round((ratedCount / Math.max(1, candCount)) * 100)) + '%';
+      track.append(bar);
+      infoDiv.append(titleStrong, metaDiv, track);
 
       const badge = document.createElement('span');
       if (item.submitted) {
         badge.className = 'review-badge submitted';
-        badge.textContent = `確定済み (${item.rated_count ?? candCount}/${candCount})`;
-      } else if ((item.rated_count ?? 0) > 0) {
+        badge.textContent = `確定済み (${ratedCount}/${candCount})`;
+      } else if (ratedCount > 0) {
         badge.className = 'review-badge progress';
-        badge.textContent = `評価中 (${item.rated_count}/${candCount})`;
+        badge.textContent = `評価中 (${ratedCount}/${candCount})`;
       } else {
         badge.className = 'review-badge';
         badge.textContent = `未評価 (0/${candCount})`;
@@ -760,7 +839,7 @@ async function init() {
   $('title').textContent = review.title;
   document.title = review.title + ' · 画像レビュー';
   $('overall-note').value = draft.overall_note;
-  $('save-status').textContent = '下書き保存済み';
+  setSaveStatus('下書き保存済み', 'saved');
   bind();
   renderCompareOptions();
   select(0);
