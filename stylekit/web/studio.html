@@ -1,0 +1,21 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StyleFork · 絵柄と画像レビュー</title><link rel="stylesheet" href="/style.css"><script defer src="/studio.js"></script></head>
+<body class="studio-body">
+<header><div><span class="eyebrow">AGENT-ASSISTED IMAGE WORKSPACE</span><h1>StyleFork <small>絵柄と画像レビュー</small></h1></div><div class="header-actions"><a href="/reviews">画像レビュー一覧</a><button id="new-style">絵柄を登録</button></div></header>
+<div class="studio-layout">
+  <aside class="style-library"><div class="section-label">保存済みの絵柄</div><p class="quiet">使っても元の絵柄は変わりません。</p><div id="style-list"></div><hr><div class="section-label">作業中のセッション</div><div id="session-list"></div></aside>
+  <section id="welcome" class="studio-welcome"><div class="eyebrow">A STYLE YOU CAN ALWAYS RETURN TO</div><h2>絵柄を選ぶ。<br>試す。気に入ったら派生を残す。</h2><p>今回の要件や調整は、セッションの中で試せます。<br>「新しい絵柄として保存」を選んだときだけ、別の絵柄を作ります。</p><p class="quiet">左の絵柄から作業を始めるか、使いたいチェックポイントで最初の絵柄を登録してください。</p></section>
+  <section id="session-panel" class="studio-session" hidden>
+    <div class="session-top"><div><span class="eyebrow">WORKING SESSION</span><h2 id="session-title"></h2><p id="base-style" class="quiet"></p></div><span id="working-status" class="working-tag">作業中の調整</span></div>
+    <div class="session-grid"><section class="session-editor">
+      <label for="requirements">今回描きたいもの・要件</label><textarea id="requirements" placeholder="例：雨上がりの公園で、傘を閉じて歩いている人物"></textarea>
+      <label for="negative-extra">今回だけ除外したいもの</label><textarea id="negative-extra" class="short" placeholder="例：飲み物は描かない。この指定は絵柄には保存されません。"></textarea>
+      <details class="adjustments"><summary>絵柄の雰囲気の調整（エージェント向け）</summary><p class="quiet">ここは作業中の調整です。新しい絵柄として保存した場合にだけ、派生先へ引き継ぎます。被写体や小道具は上の要件へ入れます。</p><label for="positive-add">追加する表現</label><input id="positive-add" placeholder="soft matte shading, gentle expression"><label for="negative-add">絵柄側で抑える表現</label><input id="negative-add" placeholder="neon, bloom"><label for="negative-remove">保存済みの除外設定から今回外す表現</label><input id="negative-remove" placeholder="shiny eyes"></details>
+      <div class="session-actions"><button id="update-session">作業内容を更新</button><span id="session-save-status" role="status"></span></div>
+      <div class="next-step"><h3>この内容で生成を依頼する</h3><p class="quiet">エージェントが要件を生成条件へ整理し、このセッションで作業します。画像ができたら、番号付きレビューで確認できます。</p><button id="copy-request" class="primary">エージェントへの依頼文をコピー</button></div>
+      <div class="next-step"><h3>この雰囲気を新しい絵柄にする</h3><p class="quiet">元の絵柄を残したまま派生を作ります。今回の要件や小道具の除外指定は含みません。</p><label for="fork-name">新しい絵柄の名前</label><input id="fork-name" placeholder="例：柔らかい塗り・落ち着いた色"><button id="fork-style">新しい絵柄として保存</button><p id="fork-result" role="status"></p></div>
+    </section><aside class="session-history"><div class="section-label">このセッションの画像</div><div id="run-list"></div><p class="quiet">新旧の比較対象はレビュー画面で追加できます。全画面は F キー、← → で画像切替。</p><hr><div class="section-label">絵柄の派生元</div><div id="lineage"></div><details><summary>今回の設定を確認</summary><pre id="recipe-preview"></pre></details></aside></div>
+  </section>
+</div>
+<dialog id="register-style"><div class="dialog-head"><h2>最初の絵柄を登録</h2><button id="close-register">閉じる</button></div><p class="quiet">既存の絵柄を変えず、新しい設定を登録します。モデルは同梱されません。</p><label for="style-name">絵柄の名前</label><input id="style-name" placeholder="例：アニメの線画"><label for="checkpoint">ComfyUI 内のチェックポイント名</label><input id="checkpoint" placeholder="自分で用意したモデルのファイル名.safetensors"><label for="root-tokens">線・塗り・色などの表現</label><input id="root-tokens" placeholder="clean lineart, soft shading"><button id="register-submit" class="primary">この絵柄を登録</button></dialog>
+<div id="error" role="alert" hidden></div>
+</body></html>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "StyleFork image workflow"
+  short_description: "Isolated style sessions and numbered image review"
+  default_prompt: "Use StyleFork to create and review images while keeping saved styles unchanged."
