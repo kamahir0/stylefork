@@ -6,6 +6,23 @@ from .workspace import Workspace
 from .storage import read_json,atomic_write_json
 from .review import ReviewStore
 
+def _parse_labels(raw):
+    if not raw:return None
+    if isinstance(raw,str):raw=[raw]
+    if len(raw)==1:
+        val=raw[0].strip()
+        if (val.startswith('{') and val.endswith('}')) or (val.startswith('[') and val.endswith(']')):
+            return json.loads(val)
+        p=Path(val)
+        if p.is_file():return read_json(p)
+        if '=' in val and val.split('=',1)[0].strip().startswith(('run-','CAND_','#')):
+            k,v=val.split('=',1);return {k.strip():v.strip()}
+        if val.endswith('.json'):return read_json(p)
+        return [val]
+    if all('=' in item and item.split('=',1)[0].strip().startswith(('run-','CAND_','#')) for item in raw):
+        return {item.split('=',1)[0].strip():item.split('=',1)[1].strip() for item in raw}
+    return list(raw)
+
 def main(argv=None):
     p=argparse.ArgumentParser(description='StyleFork: immutable styles, isolated sessions, image review')
     p.add_argument('--workspace',default='.',help='Data workspace (never the kit source when preparing a release)')
@@ -26,11 +43,13 @@ def main(argv=None):
     sf=session.add_parser('fork');sf.add_argument('--id',required=True);sf.add_argument('--style-id',required=True);sf.add_argument('--name',required=True)
     sf.add_argument('--save-intent',required=True);sf.add_argument('--description',default='');sf.add_argument('--run',default=None)
     turn=sub.add_parser('turn');turn.add_argument('--session',required=True);turn.add_argument('--title',required=True);turn.add_argument('--theme',default=None)
-    gen=sub.add_parser('generate');gen.add_argument('--session',required=True);gen.add_argument('--turn',required=True);gen.add_argument('--seed',type=int,default=123456);gen.add_argument('--timeout',type=int,default=600)
+    gen=sub.add_parser('generate');gen.add_argument('--session',required=True);gen.add_argument('--turn',required=True);gen.add_argument('--seed',type=int,default=123456);gen.add_argument('--timeout',type=int,default=600);gen.add_argument('--unload-models',action='store_true')
+    free=sub.add_parser('free',help='Release ComfyUI VRAM/RAM caches and prompt history');free.add_argument('--keep-models',action='store_true');free.add_argument('--keep-history',action='store_true')
     record=sub.add_parser('record');record.add_argument('--session',required=True);record.add_argument('--turn',required=True);record.add_argument('--image',nargs='+',required=True);record.add_argument('--workflow',default=None);record.add_argument('--seed',type=int,default=123456)
     review=sub.add_parser('review').add_subparsers(dest='review_cmd',required=True)
-    rc=review.add_parser('create');rc.add_argument('--turn',default=None);rc.add_argument('--experiment',nargs='*',default=[]);rc.add_argument('--reference',nargs='*',default=[]);rc.add_argument('--title',default='画像レビュー');rc.add_argument('--labels',default=None)
+    rc=review.add_parser('create');rc.add_argument('--turn',default=None);rc.add_argument('--experiment',nargs='*',default=[]);rc.add_argument('--reference',nargs='*',default=[]);rc.add_argument('--title',default='画像レビュー');rc.add_argument('--labels',nargs='*',default=None,help='JSON file path, inline JSON object/list, or positional label strings')
     rs=review.add_parser('show');rs.add_argument('--id',required=True);rs.add_argument('--feedback',action='store_true')
+    rw=review.add_parser('wait',help='Wait for review submission (also serves UI on --port if not running)');rw.add_argument('--id',required=True);rw.add_argument('--since-revision',type=int,default=None);rw.add_argument('--timeout',type=float,default=86400);rw.add_argument('--port',type=int,default=8767)
     sub.add_parser('doctor')
     args=p.parse_args(argv);w=Workspace(args.workspace)
     if args.cmd=='init':
@@ -63,16 +82,27 @@ def main(argv=None):
     elif args.cmd=='turn':result=w.create_turn(args.session,title=args.title,theme=args.theme)
     elif args.cmd=='generate':
         from .comfy import generate
-        result=generate(w,args.session,args.turn,seed=args.seed,timeout=args.timeout)
+        result=generate(w,args.session,args.turn,seed=args.seed,timeout=args.timeout,unload_models=args.unload_models)
+    elif args.cmd=='free':
+        from .comfy import free_memory
+        url=w.config().get('comfy_url','http://127.0.0.1:8188')
+        result=free_memory(url,unload_models=not args.keep_models,clear_history=not args.keep_history)
     elif args.cmd=='record':result=w.record_run(args.session,args.turn,args.image,seed=args.seed,workflow=read_json(args.workflow) if args.workflow else None)
     elif args.cmd=='review':
         reviews=ReviewStore(args.workspace)
         if args.review_cmd=='show':
             result=reviews.get(args.id)
             if args.feedback:result=result['submitted']
+        elif args.review_cmd=='wait':
+            result=reviews.wait(args.id,since_revision=args.since_revision,timeout=args.timeout,serve_port=args.port)
         else:
-            result=reviews.create(title=args.title,batch_id=args.turn,experiments=args.experiment,references=args.reference,labels=read_json(args.labels) if args.labels else None)
-            result['url']=f'http://127.0.0.1:8767/reviews?review={result["review_id"]}'
+            from .comfy import free_memory
+            free_memory(w.config().get('comfy_url','http://127.0.0.1:8188'),unload_models=True,clear_history=True)
+            result=reviews.create(title=args.title,batch_id=args.turn,experiments=args.experiment,references=args.reference,labels=_parse_labels(args.labels))
+            url=f'http://127.0.0.1:8767/reviews?review={result["review_id"]}'
+            result['url']=url
+            result['markdown_link']=f'[画像レビューを開く ({result["review_id"]})]({url})'
+            result['wait_command']=f'python .agents/stylefork.py review wait --id {result["review_id"]}'
     elif args.cmd=='doctor':
         from .comfy import request
         result={'workspace':str(w.root),'styles':len(w.styles()),'python_only_ui':True,'comfy_url':w.config().get('comfy_url','http://127.0.0.1:8188')}

@@ -17,15 +17,19 @@ Keep subject, scene, costume, props and one-off exclusions in `requirements` / `
 
 ## Generate and show
 
-Create one `turn --session <id> --title <short_title> --theme <concept>` per image-generating exchange. Reuse that turn ID for all batches in the exchange. `generate --session <id> --turn <id>` invokes the configured ComfyUI server only when explicitly called. Ensure the model and required nodes exist; do not silently switch models or strip unsupported settings.
+Create one `turn --session <id> --title <short_title> --theme <concept>` per image-generating exchange. Reuse that turn ID for all batches in the exchange. `generate --session <id> --turn <id>` invokes the configured ComfyUI server only when explicitly called and automatically releases ComfyUI prompt history and intermediate VRAM/RAM cache after each run (`free` can also be run manually). Ensure the model and required nodes exist; do not silently switch models or strip unsupported settings.
 
 If using another generator or an external workflow, record the actual image and workflow with `record`, and keep the session recipe aligned with the settings actually used. Treat incomplete external provenance as incomplete, rather than claiming exact reproduction. Model files and reference art are not kit assets.
 
-Create a numbered review with `review create --turn <id> --reference <past_run_or_experiment_ids...>`, using `--labels <json>` for short human-readable names. Include the past references actually needed for this comparison. Give the returned review URL. Do not ask the user to find output files or copy long IDs. The viewer supports enlarging, side-by-side comparisons and fullscreen (F, arrows, bottom-left filmstrip that hides on inactivity).
+Create a numbered review with `review create --turn <id> --reference <past_run_or_experiment_ids...>`, using `--labels` (JSON file path, inline JSON, or positional label strings) for short human-readable names. `review create` also unloads ComfyUI models/cache so the PC stays responsive during review. Include the past references actually needed for this comparison. Always present the returned review URL as a clickable Markdown link (`[画像レビューを開く (<review_id>)](http://127.0.0.1:8767/reviews?review=<review_id>)`) — never wrap the URL in backticks (`` `http://...` ``), as backticks disable link clicking in chat. Do not ask the user to find output files or copy long IDs. The viewer supports enlarging, side-by-side comparisons and fullscreen (F, arrows, bottom-left filmstrip that hides on inactivity).
+
+Right after `review create` (as your final tool call before ending the turn), start `python .agents/stylefork.py review wait --id <review_id>` as a background task (`WaitMsBeforeAsync: 500`, `IsDaemon: false`). `review wait` serves the UI on port 8767 if not already running and exits with the submitted feedback JSON as soon as the user clicks "評価を確定", waking up the session automatically.
 
 ## Read feedback and fork only on request
 
-Read `review show --id <id> --feedback` when the user reports finishing. A null result means there is no submitted feedback yet; do not treat a draft as a final judgment. Keep the review ID scoped to the chat. General ratings are not permission to save or modify a style.
+When `review wait --id <id>` finishes or the user reports finishing, inspect the submitted feedback (`review show --id <id> --feedback`). A null result means there is no submitted feedback yet; do not treat a draft as a final judgment. Keep the review ID scoped to the chat. General ratings are not permission to save or modify a style.
+
+By default, after reading submitted review feedback, do NOT automatically start generating the next batch (`generate`). Instead, analyze the ratings and notes, summarize your findings and proposed adjustments or fork plan, and wait for the user's instructions. However, if the user explicitly requests generating the next images (in the review's `overall_note`, an item `note`, or their chat message), immediately apply the session adjustments and start the next generation without waiting for an extra confirmation turn.
 
 When the user explicitly asks to save an atmosphere/style, select the relevant session or run. Explain which reusable changes are being saved and which requirements remain specific to the image. Use `session fork` with a new style ID, name and the user's actual request as `--save-intent`. For a particular image, include `--run <run_id>` so later adjustments cannot replace its source recipe.
 

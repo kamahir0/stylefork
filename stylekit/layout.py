@@ -47,5 +47,7 @@ Read `.agents/skills/stylefork-project/SKILL.md` for image generation, review an
 
 Keep images in `output/<concept>/<turn>/`, immutable saved styles in `styles/`, and all internal state under `.stylefork/`. Use explicit session and turn IDs. Requirements and one-off exclusions belong to the session. Generation and evaluation never edit a saved style; only an explicit user save request creates a fork. Review current and past images with stable short numbers.
 
+Always format the review URL returned by `review create` as a clickable Markdown link (`[画像レビューを開く (<review_id>)](http://127.0.0.1:8767/reviews?review=<review_id>)`) — never wrap the URL in backticks. Right after `review create`, start `python .agents/stylefork.py review wait --id <review_id>` as a background task (`WaitMsBeforeAsync: 500`, `IsDaemon: false`) before ending the turn so the session automatically resumes when the user clicks "評価を確定". After reading submitted feedback, analyze and report findings/proposals and wait for user instructions by default; only start generating the next batch immediately if the user explicitly requested next generation in the review notes or chat.
+
 Do not use global active-session state or create legacy research/evidence bookkeeping. Fresh projects need no migration records. The kit does not rely on `.agents/rules/` for Codex instructions.
 """

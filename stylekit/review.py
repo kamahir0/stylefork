@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
+import signal
 import subprocess
 import sys
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -46,7 +50,7 @@ class ReviewStore:
 
     def create(self, *, title: str, batch_id: str | None = None, experiments: list[str] | None = None,
                references: list[str] | None = None, track_id: str | None = None,
-               labels: dict[str, str] | None = None) -> dict:
+               labels: dict[str, str] | list[str] | None = None) -> dict:
         catalog = self.catalog(track_id)
         experiments, references = experiments or [], references or []
         if not experiments and not batch_id:
@@ -69,9 +73,20 @@ class ReviewStore:
                     selected.append(item)
         review = {"schema_version": 1, "review_id": make_id("review"), "title": title,
                   "created_at": now_iso(), "track_id": track_id, "batch_id": batch_id, "items": []}
-        for item in selected:
-            item["label"] = (labels or {}).get(item["experiment_id"], item["label"])
-            review["items"].append({**item, "number": len(review["items"]) + 1,
+        for index, item in enumerate(selected):
+            num = index + 1
+            if isinstance(labels, list):
+                if index < len(labels) and labels[index]:
+                    item["label"] = str(labels[index])
+            elif isinstance(labels, dict):
+                item["label"] = (
+                    labels.get(item["experiment_id"])
+                    or labels.get(item.get("path", ""))
+                    or labels.get(str(num))
+                    or labels.get(f"#{num}")
+                    or item["label"]
+                )
+            review["items"].append({**item, "number": num,
                                     "role": "reference" if item["experiment_id"] in references else "candidate"})
         folder = self._folder(review["review_id"])
         atomic_write_json(folder / "review.json", review)
@@ -87,7 +102,7 @@ class ReviewStore:
         ws = Workspace(self.root)
         for item in review.get("items", []):
             if item.get("label") in (None, "", "0") and item.get("run_id"):
-                run_file = ws.runs_dir / f'{item["run_id"]}.json'
+                run_file = ws.data / "runs" / f'{item["run_id"]}.json'
                 if run_file.is_file():
                     run_data = self._read(run_file)
                     outputs = run_data.get("outputs", [])
@@ -98,6 +113,9 @@ class ReviewStore:
                         item["label"] = lbl
         review["draft"] = self._read(folder / "draft.json")
         review["submitted"] = self._read(folder / "feedback.json") if (folder / "feedback.json").exists() else None
+        url = f'http://127.0.0.1:8767/reviews?review={review["review_id"]}'
+        review["url"] = url
+        review["markdown_link"] = f'[画像レビューを開く ({review["review_id"]})]({url})'
         return review
 
     def list_reviews(self) -> list[dict]:
@@ -200,6 +218,7 @@ class ReviewStore:
             "title": feedback["title"],
             "revision": feedback["revision"],
             "submitted_at": feedback["submitted_at"],
+            "overall_note": feedback.get("overall_note", ""),
             "feedback_path": str(folder / "feedback.json"),
             "markdown_path": str(folder / "feedback.md"),
         }
@@ -210,12 +229,91 @@ class ReviewStore:
                 input=json.dumps(event, ensure_ascii=False),
                 text=True,
                 encoding="utf-8",
-                timeout=10,
+                timeout=3,
                 capture_output=True,
                 check=False,
             )
         except Exception:
             pass
+
+    def wait(
+        self,
+        review_id: str,
+        *,
+        since_revision: int | None = None,
+        timeout: float = 86400.0,
+        poll_interval: float = 0.4,
+        serve_port: int | None = 8767,
+    ) -> dict:
+        folder = self._folder(review_id)
+        if not (folder / "review.json").is_file():
+            raise FileNotFoundError(f"Review not found: {review_id}")
+        feedback_path = folder / "feedback.json"
+        if since_revision is not None:
+            baseline_rev = int(since_revision)
+        elif feedback_path.is_file():
+            try:
+                baseline_rev = int(self._read(feedback_path).get("revision", 0))
+            except Exception:
+                baseline_rev = 0
+        else:
+            baseline_rev = 0
+
+        watcher_file = self.directory / "watcher.pid"
+        if watcher_file.is_file():
+            try:
+                prev = self._read(watcher_file)
+                prev_pid = int(prev.get("pid", 0))
+                if prev_pid and prev_pid != os.getpid():
+                    os.kill(prev_pid, signal.SIGTERM)
+            except Exception:
+                pass
+        try:
+            atomic_write_json(watcher_file, {"pid": os.getpid(), "review_id": review_id, "started_at": now_iso()})
+        except Exception:
+            pass
+
+        embedded_server = None
+        if serve_port:
+            try:
+                from .server import create_http_server
+                embedded_server = create_http_server(self.root, int(serve_port))
+                thread = threading.Thread(target=embedded_server.serve_forever, daemon=True)
+                thread.start()
+            except OSError:
+                embedded_server = None
+
+        deadline = time.monotonic() + float(timeout)
+        try:
+            while time.monotonic() < deadline:
+                if feedback_path.is_file():
+                    try:
+                        data = self._read(feedback_path)
+                    except Exception:
+                        data = None
+                    if isinstance(data, dict) and int(data.get("revision", 0)) > baseline_rev:
+                        if embedded_server is not None:
+                            time.sleep(0.8)
+                        data["continuation_policy"] = (
+                            "Analyze the submitted feedback and report your findings/proposals. "
+                            "Do NOT start generating the next batch automatically unless the user explicitly requested "
+                            "next generation in overall_note, item notes, or chat."
+                        )
+                        return data
+                time.sleep(max(0.05, float(poll_interval)))
+            raise TimeoutError(f"Timed out waiting for review submission: {review_id}")
+        finally:
+            if embedded_server is not None:
+                try:
+                    embedded_server.shutdown()
+                    embedded_server.server_close()
+                except Exception:
+                    pass
+            try:
+                if watcher_file.is_file() and self._read(watcher_file).get("pid") == os.getpid():
+                    watcher_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
     def image(self, review_id: str, number: int) -> Path:
         folder = self._folder(review_id)

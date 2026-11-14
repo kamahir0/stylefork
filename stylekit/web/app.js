@@ -3,6 +3,12 @@ const $ = id => document.getElementById(id);
 const verdictNames = {good:'良い', neutral:'普通', bad:'微妙', unsure:'判断困難', '':'未評価'};
 let review, draft, current = 0, catalog = [], timer, toastTimer, queue = Promise.resolve(), generation = 0, savedGeneration = 0;
 let conflict = false, focused = false, nativeFullscreen = false, chromeTimer, isDraggingStage = false, syncingScroll = false;
+let workspaceInfo = null;
+
+function buildContinuationPrompt(wsPath) {
+  const ws = wsPath ? `データワークスペースは「${wsPath}」です。` : '';
+  return `${ws}StyleForkの画像レビュー ${reviewId} の評価を確定しました。提出済みフィードバック（python .agents/stylefork.py review show --id ${reviewId} --feedback）を読み取って分析・方針整理を行ってください。メモや指示内で次の画像生成が明示的に求められている場合のみ直ちに次の生成を開始し、そうでない場合は勝手に次の生成を開始せず、分析結果と次の方針案を報告して指示を待ってください。保存済みの絵柄は明示的な保存指示があるまで変更しないでください。`;
+}
 const scales = {left: 'fit', right: 'fit', focus: 'fit', 'focus-right': 'fit'};
 const savedCenter = {
   left: {rx: 0.5, ry: 0.5},
@@ -723,15 +729,35 @@ function bind() {
   $('submit').onclick = async () => {
     const button = $('submit');
     button.disabled = true;
-    try { await persist(true); }
-    catch (e) { fail(e); }
-    finally { button.disabled = false; }
+    try {
+      await persist(true);
+      try {
+        const info = workspaceInfo || await api('/api/info');
+        workspaceInfo = info;
+        await navigator.clipboard.writeText(buildContinuationPrompt(info.workspace));
+      } catch (_) {}
+      if (document.fullscreenElement) {
+        try { await document.exitFullscreen(); } catch (_) {}
+      }
+      setTimeout(() => {
+        try { window.open('', '_self'); } catch (_) {}
+        try { window.close(); } catch (_) {}
+      }, 120);
+      setTimeout(() => {
+        showToast('評価を確定しました（AI セッションが自動で続行します）');
+      }, 320);
+    } catch (e) {
+      fail(e);
+    } finally {
+      button.disabled = false;
+    }
   };
 
   $('copy').onclick = async () => {
     try {
-      const info = await api('/api/info');
-      await navigator.clipboard.writeText(`データワークスペースは「${info.workspace}」です。StyleForkの画像レビュー ${reviewId} の評価を確定しました。このレビューの提出済みフィードバックを読み取り、次の作業に反映してください。保存済みの絵柄は変更しないでください。`);
+      const info = workspaceInfo || await api('/api/info');
+      workspaceInfo = info;
+      await navigator.clipboard.writeText(buildContinuationPrompt(info.workspace));
       const copyLabel = $('copy-label') || $('copy');
       copyLabel.textContent = 'コピーしました';
       showToast('AI への依頼文をコピーしました');
@@ -831,6 +857,7 @@ function renderLibrary() {
 
 async function init() {
   initTheme();
+  api('/api/info').then(info => { workspaceInfo = info; }).catch(() => {});
   if (!reviewId) {
     $('landing').hidden = false;
     $('add').hidden = $('submit').hidden = $('fullscreen').hidden = true;
@@ -840,6 +867,12 @@ async function init() {
       const a = document.createElement('a');
       a.className = 'review-card-link';
       a.href = '/reviews?review=' + encodeURIComponent(item.review_id);
+      a.onclick = e => {
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+          e.preventDefault();
+          location.replace(a.href);
+        }
+      };
       const infoDiv = document.createElement('div');
       const titleStrong = document.createElement('strong');
       titleStrong.textContent = item.title;

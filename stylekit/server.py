@@ -1,6 +1,8 @@
 """Loopback-only UI, with validated file routes and same-origin JSON writes."""
 import json
 import mimetypes
+import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse,parse_qs
@@ -8,7 +10,7 @@ from .workspace import Workspace
 from .review import ReviewStore
 from .storage import read_json
 
-def serve(root,port=8767):
+def create_http_server(root,port=8767):
     workspace=Workspace(root);workspace.init();reviews=ReviewStore(root);web=Path(__file__).parent/'web'
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*_):pass
@@ -72,7 +74,23 @@ def serve(root,port=8767):
             except Exception as exc:self.send(500,{'error':type(exc).__name__+': '+str(exc)})
         def do_GET(self):self.dispatch()
         def do_POST(self):self.dispatch(True)
-    server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
+    return ThreadingHTTPServer(('127.0.0.1',port),Handler)
+
+def serve(root,port=8767):
+    workspace=Workspace(root);workspace.init()
+    try:
+        server=create_http_server(root,port)
+    except OSError:
+        try:
+            with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/info',timeout=2) as r:
+                info=json.load(r)
+            if Path(info.get('workspace','')).resolve()==workspace.root:
+                print(f'StyleFork: http://127.0.0.1:{port} (already running)',flush=True)
+                try:
+                    while True:time.sleep(3600)
+                except KeyboardInterrupt:return
+        except Exception:pass
+        raise
     print(f'StyleFork: http://127.0.0.1:{server.server_port}',flush=True)
     try:server.serve_forever()
     except KeyboardInterrupt:pass

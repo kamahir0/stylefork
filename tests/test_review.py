@@ -104,6 +104,26 @@ class TestReview(unittest.TestCase):
         with self.assertRaises(ValueError): self.store.create(title="空", batch_id="unknown")
         with self.assertRaises(ValueError): self.store.create(title="不明", experiments=["missing"])
 
+    def test_positional_labels_markdown_link_and_wait(self):
+        import threading
+        review = self.store.create(title="比較テスト", batch_id="b1", references=["old"], labels=["候補A", "候補B", "参考旧"])
+        self.assertEqual([i["label"] for i in review["items"]], ["候補A", "候補B", "参考旧"])
+        self.assertIn(review["review_id"], review["url"])
+        self.assertTrue(review["markdown_link"].startswith("[画像レビューを開く ("))
+        rid = review["review_id"]
+
+        def submit_later():
+            import time
+            time.sleep(0.15)
+            self.store.save(rid, {"revision": 0, "ratings": {"1": {"verdict": "good", "note": "OK"}}, "overall_note": "良い"}, submit=True)
+
+        t = threading.Thread(target=submit_later, daemon=True)
+        t.start()
+        waited = self.store.wait(rid, timeout=5.0, poll_interval=0.05, serve_port=None)
+        self.assertEqual(waited["review_id"], rid)
+        self.assertEqual(waited["overall_note"], "良い")
+        self.assertIn("continuation_policy", waited)
+
 
 if __name__ == "__main__":
     unittest.main()
