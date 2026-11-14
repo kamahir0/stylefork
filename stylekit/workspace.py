@@ -157,6 +157,8 @@ class Workspace:
         if not isinstance(turn_id,str) or Path(turn_id).name!=turn_id or any(x in turn_id for x in '/\\:') or turn_id in ('.','..'):raise ValueError('Invalid turn ID')
         return read_json(self.data/'turns'/(turn_id+'.json'))
 
+    def turns(self):return [read_json(p) for p in sorted((self.data/'turns').glob('*.json'),reverse=True)]
+
     def record_run(self,session_id,turn_id,images, *, seed=123456, workflow=None, session_snapshot=None):
         session=session_snapshot or self.session(session_id);turn=self.turn(turn_id)
         if turn['session_id']!=session_id:raise ValueError('Turn belongs to another session')
@@ -169,7 +171,9 @@ class Workspace:
             snapshot=self.data/'objects'/(hashed+source.suffix.lower())
             raw=source.read_bytes();atomic_write_bytes(target,raw)
             if not snapshot.exists():atomic_write_bytes(snapshot,raw)
-            outputs.append({'path':rel_posix(target,self.root),'image_path':rel_posix(snapshot,self.root),'sha256':hashed,'label':source.stem})
+            label=source.stem
+            if label.isdigit():label=f"{turn['title']}_{int(label)+1:02d}" if len(images)>1 else turn['title']
+            outputs.append({'path':rel_posix(target,self.root),'image_path':rel_posix(snapshot,self.root),'sha256':hashed,'label':label})
         if not outputs:raise ValueError('At least one generated image is required')
         recipe=copy.deepcopy(session['working_recipe'])
         if workflow is None:workflow,_=assemble_workflow({'preset_id':session['base_style_id'],**recipe},subject_prompt=session['requirements'],negative_extra=session['negative_extra'],seed=seed)
@@ -181,14 +185,19 @@ class Workspace:
         create_json(self.data/'runs'/(run_id+'.json'),run);return run
 
     def catalog(self,track_id=None):
-        result=[]
+        result=[];turns_by_id={t['turn_id']:t for t in self.turns()}
+        style_names={p.stem:read_json(p).get('name',p.stem) for p in self.styles_dir.glob('*.json')}
         for path in sorted((self.data/'runs').glob('*.json'),reverse=True):
             run=read_json(path)
             if track_id and run['style_id']!=track_id:continue
+            tinfo=turns_by_id.get(run['turn_id'],{})
             for index,output in enumerate(run['outputs']):
-                result.append({**output,'experiment_id':run['run_id'],'run_id':run['run_id'],'session_id':run['session_id'],
-                               'output_index':index,'batch_id':run['turn_id'],
-                               'track_id':run['style_id'],'created_at':run['created_at'],'hypothesis':run['requirements']})
+                label=output.get('label','')
+                if not label or label=='0':label=tinfo.get('title') or run['turn_id']
+                result.append({**output,'label':label,'experiment_id':run['run_id'],'run_id':run['run_id'],'session_id':run['session_id'],
+                               'output_index':index,'batch_id':run['turn_id'],'turn_title':tinfo.get('title',''),'concept':tinfo.get('theme',''),
+                               'track_id':run['style_id'],'style_name':style_names.get(run['style_id'],run['style_id']),
+                               'created_at':run['created_at'],'hypothesis':run['requirements']})
         legacy=self.data/'history/research.json'
         if not legacy.exists():legacy=self.root/'.research/state.json'
         if legacy.exists():

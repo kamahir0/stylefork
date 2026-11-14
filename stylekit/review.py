@@ -82,7 +82,20 @@ class ReviewStore:
         folder = self._folder(review_id)
         review = self._read(folder / "review.json")
         from .migration import resolve_aliases
+        from .workspace import Workspace
         review = resolve_aliases(review,self.root)
+        ws = Workspace(self.root)
+        for item in review.get("items", []):
+            if item.get("label") in (None, "", "0") and item.get("run_id"):
+                run_file = ws.runs_dir / f'{item["run_id"]}.json'
+                if run_file.is_file():
+                    run_data = self._read(run_file)
+                    outputs = run_data.get("outputs", [])
+                    idx = item.get("output_index", 0)
+                    out_label = outputs[idx].get("label") if idx < len(outputs) else None
+                    lbl = out_label or run_data.get("label")
+                    if lbl and lbl != "0":
+                        item["label"] = lbl
         review["draft"] = self._read(folder / "draft.json")
         review["submitted"] = self._read(folder / "feedback.json") if (folder / "feedback.json").exists() else None
         return review
@@ -92,7 +105,29 @@ class ReviewStore:
         paths = [*self.directory.glob("*/review.json"), *(self.root / ".research/reviews").glob("*/review.json")]
         for path in paths:
             review = self._read(path)
-            result.append({k: review.get(k) for k in ["review_id", "title", "created_at", "track_id"]})
+            draft_path = path.parent / "draft.json"
+            draft = self._read(draft_path) if draft_path.is_file() else {"ratings": {}}
+            sub_path = path.parent / "feedback.json"
+            submitted = self._read(sub_path) if sub_path.is_file() else None
+            items = review.get("items", [])
+            candidates = [i for i in items if i.get("role") == "candidate"] or items
+            ratings = draft.get("ratings", {})
+            rated_count = sum(
+                1
+                for i in candidates
+                if ratings.get(str(i.get("number")), {}).get("verdict")
+                or ratings.get(str(i.get("number")), {}).get("note", "").strip()
+            )
+            result.append(
+                {
+                    **{k: review.get(k) for k in ["review_id", "title", "created_at", "track_id", "batch_id"]},
+                    "item_count": len(items),
+                    "candidate_count": len(candidates),
+                    "rated_count": rated_count,
+                    "submitted": bool(submitted),
+                    "submitted_at": submitted.get("submitted_at") if isinstance(submitted, dict) else None,
+                }
+            )
         return sorted(result, key=lambda r: r["created_at"], reverse=True)
 
     def add(self, review_id: str, experiment_id: str, revision: int) -> dict:

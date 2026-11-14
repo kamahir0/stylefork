@@ -7,23 +7,35 @@
 </head>
 <body>
   <header><div><span class="eyebrow">LOCAL IMAGE REVIEW</span><h1 id="title">画像レビュー</h1></div>
-    <div class="header-actions"><a href="/">絵柄とセッション</a><span id="save-status" role="status">読み込み中…</span><button id="fullscreen">全画面で見る</button><button id="add">過去画像を追加</button><button id="submit" class="primary">評価を確定</button></div>
+    <div class="header-actions"><a href="/">絵柄とセッション</a><a href="/reviews">レビュー一覧</a><span id="save-status" role="status">読み込み中…</span><button id="fullscreen">全画面で見る (F)</button><button id="add">過去画像を追加</button><button id="submit" class="primary">評価を確定</button></div>
   </header>
   <main id="workspace" hidden>
     <aside class="rail"><div class="rail-heading">今回見る画像 <span id="progress"></span></div><div id="cards"></div></aside>
     <section class="canvas">
-      <div class="toolbar"><div><button id="prev" aria-label="前の画像">←</button><strong id="current-label"></strong><button id="next" aria-label="次の画像">→</button></div>
-        <label>横に比較 <select id="compare"><option value="">なし</option></select></label>
+      <div class="toolbar">
+        <div class="toolbar-nav">
+          <button id="prev" aria-label="前の画像">←</button><strong id="current-label"></strong><button id="next" aria-label="次の画像">→</button>
+          <label class="inline-check" title="拡大した状態で前後の画像へ切り替えたとき、拡大率と表示位置を保ちます"><input type="checkbox" id="keep-zoom" checked> 切替時も拡大を維持</label>
+        </div>
+        <div class="toolbar-compare">
+          <label class="inline-check" id="sync-compare-wrap" hidden title="左右の画像の拡大率とスクロール位置を連動させます"><input type="checkbox" id="sync-compare" checked> 左右同期</label>
+          <label>横に比較 <select id="compare"><option value="">なし</option></select></label>
+        </div>
       </div>
       <div id="panes">
-        <div class="pane" id="left-pane"><div class="image-tools"><span id="left-name"></span><div><button data-view="left" data-zoom="fit">全体</button><button data-view="left" data-zoom="1">原寸</button><button data-view="left" data-zoom="-">−</button><span id="left-scale"></span><button data-view="left" data-zoom="+">＋</button></div></div><div class="stage" id="left-stage"><img id="left-image" alt="評価する画像" draggable="false"></div></div>
-        <div class="pane" id="right-pane" hidden><div class="image-tools"><span id="right-name"></span><div><button data-view="right" data-zoom="fit">全体</button><button data-view="right" data-zoom="1">原寸</button><button data-view="right" data-zoom="-">−</button><span id="right-scale"></span><button data-view="right" data-zoom="+">＋</button></div></div><div class="stage" id="right-stage"><img id="right-image" alt="比較用画像" draggable="false"></div></div>
+        <div class="pane" id="left-pane"><div class="image-tools"><span id="left-name"></span><div><button data-view="left" data-zoom="fit">全体</button><button data-view="left" data-zoom="1">原寸</button><button data-view="left" data-zoom="-">−</button><span id="left-scale"></span><button data-view="left" data-zoom="+">＋</button></div></div><div class="stage" id="left-stage" data-mode="fit"><img id="left-image" alt="評価する画像" draggable="false"></div></div>
+        <div class="pane" id="right-pane" hidden><div class="image-tools"><span id="right-name"></span><div><button data-view="right" data-zoom="fit">全体</button><button data-view="right" data-zoom="1">原寸</button><button data-view="right" data-zoom="-">−</button><span id="right-scale"></span><button data-view="right" data-zoom="+">＋</button></div></div><div class="stage" id="right-stage" data-mode="fit"><img id="right-image" alt="比較用画像" draggable="false"></div></div>
       </div>
-      <div class="canvas-help">← → で画像切替 · 原寸／＋で拡大 · 拡大中はドラッグで移動 · Ctrl＋ホイールで拡大縮小</div>
+      <div class="canvas-help">← → で画像切替 · 数字キー 1〜4 で評価（再押下で解除） · F で全画面 · 原寸／＋で中央基準拡大 · ドラッグで移動 · Ctrl＋ホイールで拡大縮小</div>
     </section>
     <aside class="feedback">
-      <div class="section-label">この画像の評価</div><h2 id="rating-label"></h2>
-      <div id="verdicts" class="verdicts"><button data-verdict="good">良い</button><button data-verdict="neutral">普通</button><button data-verdict="bad">微妙</button><button data-verdict="unsure">判断困難</button></div>
+      <div class="section-label">この画像の評価 <span id="role-badge" class="role-badge"></span></div><h2 id="rating-label"></h2>
+      <div id="verdicts" class="verdicts">
+        <button data-verdict="good">良い <kbd>1</kbd></button>
+        <button data-verdict="neutral">普通 <kbd>2</kbd></button>
+        <button data-verdict="bad">微妙 <kbd>3</kbd></button>
+        <button data-verdict="unsure">判断困難 <kbd>4</kbd></button>
+      </div>
       <label for="image-note">気になった点・好きな点</label><textarea id="image-note" placeholder="例：目元は好き。塗りは #08 の方が良い。理由が言葉にできなくても、そのままで大丈夫。"></textarea>
       <button id="clear-rating" class="text-button">この画像の評価をクリア</button>
       <button id="fork-image" hidden>この画像の絵柄を保存</button>
@@ -34,12 +46,38 @@
     </aside>
   </main>
   <section id="focus-view" hidden tabindex="-1" role="dialog" aria-label="全画面画像ビューア">
-    <div class="stage" id="focus-stage"><img id="focus-image" alt="全画面の画像" draggable="false"></div>
-    <div class="focus-top focus-chrome"><span id="focus-name"></span><div><button data-view="focus" data-zoom="fit">全体</button><button data-view="focus" data-zoom="1">原寸</button><button data-view="focus" data-zoom="-">−</button><span id="focus-scale"></span><button data-view="focus" data-zoom="+">＋</button><button id="exit-fullscreen">全画面を閉じる（Esc）</button></div></div>
-    <div class="focus-bottom focus-chrome"><div class="focus-navigation"><button id="focus-prev" aria-label="全画面で前の画像">←</button><span id="focus-counter"></span><button id="focus-next" aria-label="全画面で次の画像">→</button><span class="quiet">← → で切替 · 操作を止めるとサムネイルが消えます</span></div><div id="filmstrip" aria-label="今回見る画像のサムネイル"></div></div>
+    <div id="focus-panes">
+      <div class="stage" id="focus-stage" data-mode="fit"><img id="focus-image" alt="全画面の画像" draggable="false"></div>
+      <div class="stage" id="focus-right-stage" data-mode="fit" hidden><img id="focus-right-image" alt="全画面の比較用画像" draggable="false"></div>
+    </div>
+    <div class="focus-top focus-chrome">
+      <div class="focus-title-group">
+        <span id="focus-name"></span>
+        <div id="focus-verdicts" class="focus-verdicts" aria-label="全画面での評価">
+          <button data-verdict="good">良い <kbd>1</kbd></button>
+          <button data-verdict="neutral">普通 <kbd>2</kbd></button>
+          <button data-verdict="bad">微妙 <kbd>3</kbd></button>
+          <button data-verdict="unsure">判断困難 <kbd>4</kbd></button>
+        </div>
+      </div>
+      <div class="focus-controls">
+        <label class="focus-compare-label">比較 <select id="focus-compare"><option value="">なし</option></select></label>
+        <button data-view="focus" data-zoom="fit">全体</button><button data-view="focus" data-zoom="1">原寸</button><button data-view="focus" data-zoom="-">−</button><span id="focus-scale"></span><button data-view="focus" data-zoom="+">＋</button>
+        <button id="exit-fullscreen">全画面を閉じる（Esc）</button>
+      </div>
+    </div>
+    <div class="focus-bottom focus-chrome">
+      <div class="focus-navigation">
+        <button id="focus-prev" aria-label="全画面で前の画像">←</button><span id="focus-counter"></span><button id="focus-next" aria-label="全画面で次の画像">→</button>
+        <input id="focus-note" class="focus-note" type="text" placeholder="この画像のメモを入力（自動保存）" aria-label="この画像のメモ">
+        <button id="toggle-filmstrip" type="button">サムネイルを隠す</button>
+        <span class="quiet">← → で切替 · 1〜4 で評価 · 無操作でバーが消えます</span>
+      </div>
+      <div id="filmstrip" aria-label="今回見る画像のサムネイル"></div>
+    </div>
   </section>
   <section id="landing" hidden><h2>レビューを選ぶ</h2><p>今回見る画像と比較対象を、レビューごとにまとめています。</p><div id="review-list"></div></section>
-  <dialog id="library"><div class="dialog-head"><h2>過去の画像を追加</h2><button id="close-library">閉じる</button></div><div class="library-search"><input id="search" type="search" placeholder="題材・候補名・実験名で検索" aria-label="過去画像を検索"><select id="track-filter" aria-label="研究トラック"><option value="">すべての研究</option></select></div><p class="quiet">追加した画像にも番号が付きます。既存の番号は変わりません。</p><div id="library-items"></div></dialog>
+  <dialog id="library"><div class="dialog-head"><h2>過去の画像を追加</h2><button id="close-library">閉じる</button></div><div class="library-search"><input id="search" type="search" placeholder="題材・候補名・フォルダ名・日付で検索" aria-label="過去画像を検索"><select id="track-filter" aria-label="絵柄・研究トラック"><option value="">すべての絵柄</option></select></div><p class="quiet">追加した画像にも番号が付きます。既存の番号は変わりません。</p><div id="library-items"></div></dialog>
   <div id="error" role="alert" hidden></div>
   <dialog id="fork-image-dialog"><div class="dialog-head"><h2>この画像から派生を保存</h2><button id="close-fork-image">閉じる</button></div><p class="quiet">選んだ画像で使った絵柄の設定を、新しい絵柄として保存します。被写体や今回だけの除外指定は含みません。元の絵柄と他のセッションは変更されません。</p><label for="image-style-name">新しい絵柄の名前</label><input id="image-style-name" placeholder="この雰囲気に名前を付ける"><button id="save-image-style" class="primary">新しい絵柄として保存</button><p id="image-fork-result" role="status"></p></dialog>
 </body></html>

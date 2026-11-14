@@ -50,6 +50,7 @@ def serve(root,port=8767):
                 elif post and parts==['api','review']:
                     result=reviews.create(title=payload.get('title','画像レビュー'),batch_id=payload.get('turn_id'),experiments=payload.get('experiments'),references=payload.get('references'),labels=payload.get('labels'))
                 elif not post and parts==['api','reviews']:result=reviews.list_reviews()
+                elif not post and parts==['api','turns']:result=workspace.turns()
                 elif not post and parts==['api','catalog']:result=reviews.catalog()
                 elif not post and parts==['api','runs']:
                     result=[read_json(p) for p in sorted((workspace.data/'runs').glob('*.json'),reverse=True)]
