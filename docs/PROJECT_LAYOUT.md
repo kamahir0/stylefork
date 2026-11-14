@@ -19,3 +19,9 @@ The shared kit checkout and ComfyUI installation belong outside creation project
 `init` creates the project instructions and `.agents/stylefork.py`. Run `python .agents/stylefork.py ...` from the project to select that workspace automatically. An existing root AGENTS.md is never overwritten by normal initialization. When moving a project or shared installation, update `kit_home` with the external kit's `init --kit-home ...` command.
 
 The code repository contains its own development files (`tests`, CI, documentation, packaging scripts). Those belong to the shared tool checkout, not the creation project's root. Build environments and release staging files are disposable; models and the actual ComfyUI runtime are not.
+
+## Instruction boundaries
+
+The shared kit's AGENTS.md is for developing the kit. Each creation project receives its own AGENTS.md and a self-contained `.agents/skills/stylefork-project/SKILL.md`, copied from the packaged skill resource. The wheel includes that resource too. Codex does not automatically load Markdown from `.agents/rules/`; init does not create it. Existing project instructions and skills are preserved by init, so upgrades to those files should be reviewed explicitly.
+
+Fresh projects do not create `history/`, `media.json`, `path_aliases.json` or `migration/`. Those are optional compatibility data for imported projects, not disposable caches: deleting them from an imported project can break old reviews and catalog entries. For clean workflow evaluation, archive the original project externally and initialize a new one carrying only saved styles (including parents) and the required connection settings. Do not fabricate normal run records for historical images with unknown provenance.

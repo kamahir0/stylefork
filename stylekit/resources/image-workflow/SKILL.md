@@ -1,11 +1,13 @@
 ---
-name: image-workflow
+name: stylefork-project
 description: Create and review images in StyleFork using immutable saved styles, isolated working sessions, turn folders, and explicit style forks. Use for this kit's image creation and style-saving requests, not unrelated image editing or real-world art advice.
 ---
 
 # Image workflow
 
-Read the repository `AGENTS.md`. Use `python -m stylekit --workspace <data-folder> ...` from the kit checkout. First run `doctor`; inspect `style list` and the session explicitly associated with the current chat. See `docs/TUTORIAL.md` for command examples and `docs/ARCHITECTURE.md` for the data model.
+Use `python .agents/stylefork.py <command...>` from this creation project. The helper selects this project and locates the shared kit through `.stylefork/config.json`. First run `doctor`, then inspect `style list` and the explicit session associated with this chat. Use command `--help` for arguments. The shared kit's AGENTS.md is for development and is not required for image creation.
+
+Keep images in `output/<concept>/<turn>/`, saved styles in `styles/`, and settings, sessions, turns, runs, workflows, snapshots and reviews under `.stylefork/`. A fresh project requires no legacy history, media index, path aliases or migration records. Never use global active-session state.
 
 ## Choose a base and isolate work
 

@@ -1,4 +1,9 @@
 #!/bin/sh
 set -eu
-cd "$(dirname "$0")"
-python3 -m stylekit --workspace "${1:-$PWD/workspace}" serve
+if [ "$#" -ne 1 ] || [ -z "$1" ]; then
+  echo 'Usage: sh start.sh /path/to/creation-project' >&2
+  exit 2
+fi
+kit_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+python3 -B "$kit_dir/run.py" --workspace "$1" init
+exec python3 -B "$kit_dir/run.py" --workspace "$1" serve

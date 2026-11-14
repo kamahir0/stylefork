@@ -29,11 +29,30 @@ AIエージェントと画像を作り、比較して評価し、気に入った
 
 Python 3.10以降とブラウザーがあれば、UIを起動できます。npmやPythonの追加ランタイムパッケージは不要です。
 
-1. [Releases](https://github.com/kamahir0/stylefork/releases) のZIPをダウンロードして展開する。
-2. 展開したフォルダをCodexなどのコーディングエージェントで開く。
-3. 「AGENTS.mdを読んで、StyleForkで画像制作を始めたい」と依頼する。
-4. Windowsなら `start.bat`、macOS/Linuxなら `sh start.sh` で起動する。
-5. `http://127.0.0.1:8767` を開く。
+初めて使うPCでは、次の順に準備します。
+
+1. Python 3.10以降をインストールする。
+2. [Releases](https://github.com/kamahir0/stylefork/releases) のZIPをダウンロードし、共有ツールの場所（例：`D:\Tools\StyleFork`）へ展開する。Gitを使う場合は `git clone https://github.com/kamahir0/stylefork.git D:\Tools\StyleFork` でも取得できる。専用インストーラーはない。
+3. 画像生成を使うなら、別の共有フォルダへComfyUIと使用するモデル・必要なカスタムノードを用意し、起動する。キットには含まれない。
+4. 制作プロジェクトを別の場所へ初期化する。
+
+```powershell
+python D:\Tools\StyleFork\run.py --workspace D:\Projects\Illustration init --comfy-home D:\Tools\ComfyUI --comfy-url http://127.0.0.1:8188
+```
+
+5. **制作プロジェクト**の `D:\Projects\Illustration` をCodexなどのエージェントで開き、「このプロジェクトのAGENTS.mdとStyleForkスキルを読んで制作を始めたい」と依頼する。
+6. プロジェクト内から接続確認とUI起動を行う。
+
+```powershell
+python .agents/stylefork.py doctor
+python .agents/stylefork.py serve
+```
+
+`http://127.0.0.1:8767` を開き、最初の絵柄を登録する。既存の絵柄を持ち込む場合は、親の絵柄も含む必要なJSONと、対応するモデル・LoRAを用意する。Google Driveは任意で設定する。
+
+ランチャーを使う場合は、Windowsでは `D:\Tools\StyleFork\start.bat "D:\Projects\Illustration"`、macOS/Linuxでは `sh /path/to/StyleFork/start.sh /path/to/project`。保存先は必須で、キット内に暗黙のworkspaceは作らない。
+
+Python環境へwheelをインストールする方法も使える。インストール後は `stylefork --workspace <project> init` で同じプロジェクト構成と制作スキルを作成できる。キット側のAGENTS.mdは開発者用で、制作時に読む必要はない。
 
 画像生成には、別途起動したComfyUIと自分で用意したモデルが必要です。現時点の内蔵生成は標準的なSD/SDXL系ワークフロー向けです。画像確認だけならComfyUIは不要です。アプリだけでエージェントが自動起動するわけではなく、依頼文をチャットに送って作業を進めます。
 

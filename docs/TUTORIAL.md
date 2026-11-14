@@ -4,9 +4,11 @@
 
 ## 1. 作業場所を決める
 
-ソースコードの場所と、画像データの場所を区別する。ランチャーの既定はキット内の `workspace/`。別の場所を使う場合は `python -m stylekit --workspace <path> init` を実行し、以降も同じ `--workspace` を指定する。CLIはキットのフォルダで実行する。
+初めてのPCでは[READMEの導入手順](../README.ja.md#はじめる)に従い、Python・共有キット・必要ならComfyUIとモデルを用意する。ZIPの展開またはgit cloneが、キットを用意する操作になる。
 
-エージェントには `AGENTS.md` と image-workflow スキルを読んでもらう。`doctor` で設定とComfyUI接続を確認できる。
+共有キットから `python /path/to/StyleFork/run.py --workspace /path/to/project init` で制作プロジェクトを作る。エージェントで開くのは制作プロジェクト。そこのAGENTS.mdと `.agents/skills/stylefork-project/SKILL.md` を読む。キット本体のAGENTS.mdは開発用。
+
+以降は制作プロジェクト内から `python .agents/stylefork.py ...` を使う。以下の `python -m stylekit --workspace <path> ...` はキットから実行する同等のCLI例。ランチャーにも保存先を明示する。`doctor` で設定とComfyUI接続を確認できる。
 
 ## 2. 最初の絵柄を登録する
 

@@ -15,6 +15,14 @@ class LayoutTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);w=Workspace(root);w.init()
             self.assertEqual({p.name for p in root.iterdir()}, {'AGENTS.md','.agents','styles','output','.stylefork'})
+            self.assertFalse((root/'.agents/rules').exists())
+            self.assertEqual({p.name for p in w.data.iterdir()},{'config.json'})
+            skill=(root/'.agents/skills/stylefork-project/SKILL.md').read_text(encoding='utf-8')
+            self.assertIn('python .agents/stylefork.py',skill)
+            self.assertIn('session fork',skill)
+            self.assertIn('requirements',skill)
+            self.assertNotIn('Read the repository `AGENTS.md`',skill)
+            self.assertTrue((root/'.agents/skills/stylefork-project/agents/openai.yaml').is_file())
             process=subprocess.run([sys.executable,'-B',str(root/'.agents/stylefork.py'),'style','list'],cwd=root,capture_output=True,text=True,encoding='utf-8')
             self.assertEqual(process.returncode,0,process.stderr)
             self.assertEqual(json.loads(process.stdout),[])
@@ -24,6 +32,16 @@ class LayoutTests(unittest.TestCase):
             run=w.record_run(session['session_id'],turn['turn_id'],[source])
             self.assertTrue(run['workflow_path'].startswith('.stylefork/workflows/'))
             self.assertEqual(len(list((root/turn['output_dir']).glob('*.json'))),0)
+
+    def test_init_preserves_project_instructions_and_skills(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);w=Workspace(root);w.init()
+            guide=root/'AGENTS.md';skill=root/'.agents/skills/stylefork-project/SKILL.md'
+            guide.write_text('Custom project instructions',encoding='utf-8')
+            skill.write_text('Custom skill',encoding='utf-8')
+            w.init()
+            self.assertEqual(guide.read_text(encoding='utf-8'),'Custom project instructions')
+            self.assertEqual(skill.read_text(encoding='utf-8'),'Custom skill')
 
     def test_migrate_preserves_style_bytes_images_history_and_review_ids(self):
         with tempfile.TemporaryDirectory() as directory:

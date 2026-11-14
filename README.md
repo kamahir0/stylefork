@@ -23,18 +23,25 @@ The human judges the appearance and decides when to save a new style. The agent 
 
 You need **Python 3.10+** and a desktop browser. The UI has no Python runtime dependencies, npm installation, cloud account or API key requirement.
 
-Download and extract a [release ZIP](https://github.com/kamahir0/stylefork/releases), then open the folder in your coding agent:
+Download a [release ZIP](https://github.com/kamahir0/stylefork/releases) and extract it into a shared tool directory, for example `D:\Tools\StyleFork`. Alternatively, clone the source:
 
-> Read AGENTS.md and help me start StyleFork. Keep my saved styles unchanged unless I explicitly ask to save a new fork.
+```powershell
+git clone https://github.com/kamahir0/stylefork.git D:\Tools\StyleFork
+python D:\Tools\StyleFork\run.py --workspace D:\Projects\Illustration init
+```
 
-On Windows, run `start.bat`. On macOS/Linux, run `sh start.sh`. The app is at **http://127.0.0.1:8767** and the launchers use a `workspace/` data directory.
+Open **the creation project** (`D:\Projects\Illustration`) in your coding agent. Ask it to read that project's AGENTS.md and `.agents/skills/stylefork-project/SKILL.md`. The kit's AGENTS.md is for kit development.
 
-Or choose your own data folder:
+From the creation project:
 
 ```sh
-python -m stylekit --workspace /path/to/my-art init
-python -m stylekit --workspace /path/to/my-art serve
+python .agents/stylefork.py doctor
+python .agents/stylefork.py serve
 ```
+
+The UI is at **http://127.0.0.1:8767**. Launchers also require an explicit project path: `start.bat "D:\Projects\Illustration"` or `sh /path/to/StyleFork/start.sh /path/to/project`. They initialize the specified project and start its UI; there is no implicit kit-local workspace.
+
+For generation, separately install and start ComfyUI with your own models and required custom nodes. Set its endpoint using `init --comfy-url <url>` and optionally record its location using `--comfy-home <path>`. Python, ComfyUI and models are not bundled; there is no all-in-one installer. A wheel installation can use `stylefork --workspace <project> init`; the same self-contained project skill is included.
 
 Register a style in the UI, then choose **この絵柄で新しく始める**. The current UI is in Japanese; the CLI and these docs also support English-speaking agents. The [tutorial](docs/TUTORIAL.md) explains each step.
 

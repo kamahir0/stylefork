@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stylefork"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local image review and agent-assisted creation with immutable, forkable styles"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,4 +24,4 @@ stylefork = "stylekit.__main__:main"
 include = ["stylekit*"]
 
 [tool.setuptools.package-data]
-stylekit = ["web/*.html", "web/*.js", "web/*.css"]
+stylekit = ["web/*.html", "web/*.js", "web/*.css", "resources/image-workflow/SKILL.md", "resources/image-workflow/agents/openai.yaml"]

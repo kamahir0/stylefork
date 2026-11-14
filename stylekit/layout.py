@@ -18,16 +18,7 @@ def scaffold(root,config):
         state=root/'.stylefork'
         attributes=ctypes.windll.kernel32.GetFileAttributesW(str(state))
         if attributes!=-1:ctypes.windll.kernel32.SetFileAttributesW(str(state),attributes|2)
-    text='''# StyleFork project
-
-This is a creation project, not the kit source checkout. Use `python .agents/stylefork.py <command...>` from this directory. The helper selects this project automatically and locates the shared kit through `.stylefork/config.json`.
-
-Human-facing files: `output/` contains generated images grouped by concept/turn; `styles/` contains immutable saved styles. Settings, workflows, sessions, reviews, references and research history are under `.stylefork/`.
-
-Select an explicit saved style and a session for this chat. Keep requirements and one-off exclusions in the session. Generation and evaluation never edit a saved style. Create a new fork only after an explicit user save request. Review current and past images together with stable short numbers.
-
-When available, read the shared kit's `AGENTS.md` and `.agents/skills/image-workflow/SKILL.md`; an installed wheel also exposes the commands through `python .agents/stylefork.py --help`. Do not recreate retired `.research`, `.evidence-harness`, `research_ops`, or root-level wrapper scripts. Historical records live under `.stylefork/history/`, not in active generation defaults. Historical file locations resolve through `.stylefork/path_aliases.json` and `history --experiment <id>`.
-'''
+    text=PROJECT_GUIDE
     if not (root/'AGENTS.md').exists():atomic_write_text(root/'AGENTS.md',text)
     helper='''"""Project-bound launcher. The shared kit and ComfyUI live outside this project."""
 import json, sys
@@ -43,17 +34,18 @@ from stylekit.__main__ import main
 raise SystemExit(main(["--workspace", str(root), *sys.argv[1:]]))
 '''
     atomic_write_text(agents/'stylefork.py',helper)
-    rule=agents/'rules/stylefork.md'
-    if not rule.exists():atomic_write_text(rule,'''---
-trigger: always_on
-description: "Use this project's compact StyleFork workflow and state directory"
----
-Read root AGENTS.md. This project uses StyleFork and .stylefork as its active state. The user-approved layout replaces earlier research/evidence-harness bookkeeping here. Do not recreate .research, .evidence-harness, research_ops, root wrappers, or global active-session state. Use python .agents/stylefork.py with an explicit saved style, session and turn. Only explicit user save intent creates an immutable style fork. Keep images in output/concept/turn and machine records in .stylefork.
-''')
     skill=agents/'skills/stylefork-project/SKILL.md'
-    if not skill.exists():atomic_write_text(skill,'''---
-name: stylefork-project
-description: Create and review images in this StyleFork project using saved styles, isolated sessions and explicit forks. Not for unrelated tasks.
----
-Read root AGENTS.md. Use `python .agents/stylefork.py ...` for this project. Read `.stylefork/config.json` to find the shared kit, then read its AGENTS.md and image-workflow skill. Keep output images under output/concept/turn and reusable styles under styles. All other project data stays under .stylefork. Do not create legacy research roots or global active-session state.
-''')
+    if not skill.exists():
+        atomic_write_text(skill,(Path(__file__).parent/'resources/image-workflow/SKILL.md').read_text(encoding='utf-8'))
+        atomic_write_text(skill.parent/'agents/openai.yaml',(Path(__file__).parent/'resources/image-workflow/agents/openai.yaml').read_text(encoding='utf-8'))
+
+PROJECT_GUIDE = """# StyleFork creation project
+
+Use `python .agents/stylefork.py <command...>` from this project. The helper selects this project and finds the external shared kit via `.stylefork/config.json`.
+
+Read `.agents/skills/stylefork-project/SKILL.md` for image generation, review and explicit style saving. The shared kit's AGENTS.md is for kit development; it is not a dependency of this creation workflow.
+
+Keep images in `output/<concept>/<turn>/`, immutable saved styles in `styles/`, and all internal state under `.stylefork/`. Use explicit session and turn IDs. Requirements and one-off exclusions belong to the session. Generation and evaluation never edit a saved style; only an explicit user save request creates a fork. Review current and past images with stable short numbers.
+
+Do not use global active-session state or create legacy research/evidence bookkeeping. Fresh projects need no migration records. The kit does not rely on `.agents/rules/` for Codex instructions.
+"""
