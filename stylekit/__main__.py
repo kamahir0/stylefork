@@ -11,7 +11,7 @@ def main(argv=None):
     p.add_argument('--workspace',default='.',help='Data workspace (never the kit source when preparing a release)')
     sub=p.add_subparsers(dest='cmd',required=True)
     init=sub.add_parser('init');init.add_argument('--import-legacy',action='store_true')
-    init.add_argument('--comfy-url',default=None);init.add_argument('--drive-folder',default=None);init.add_argument('--timezone-offset',type=int,default=None)
+    init.add_argument('--comfy-url',default=None);init.add_argument('--timezone-offset',type=int,default=None)
     init.add_argument('--comfy-home',default=None);init.add_argument('--kit-home',default=None)
     migration=sub.add_parser('migrate');migration.add_argument('--apply',action='store_true',help='Copy and verify legacy data; sources are never deleted by this command')
     history=sub.add_parser('history');history.add_argument('--experiment',default=None)
@@ -32,11 +32,10 @@ def main(argv=None):
     rc=review.add_parser('create');rc.add_argument('--turn',default=None);rc.add_argument('--experiment',nargs='*',default=[]);rc.add_argument('--reference',nargs='*',default=[]);rc.add_argument('--title',default='画像レビュー');rc.add_argument('--labels',default=None)
     rs=review.add_parser('show');rs.add_argument('--id',required=True);rs.add_argument('--feedback',action='store_true')
     sub.add_parser('doctor')
-    drive=sub.add_parser('drive-plan');drive.add_argument('--turn',required=True)
     args=p.parse_args(argv);w=Workspace(args.workspace)
     if args.cmd=='init':
         result=w.init();cfg=w.config()
-        for name,field in [('comfy_url','comfy_url'),('drive_folder','drive_folder_id'),('timezone_offset','timezone_offset_minutes'),('comfy_home','comfy_home'),('kit_home','kit_home')]:
+        for name,field in [('comfy_url','comfy_url'),('timezone_offset','timezone_offset_minutes'),('comfy_home','comfy_home'),('kit_home','kit_home')]:
             if getattr(args,name) is not None:cfg[field]=getattr(args,name)
         atomic_write_json(w.data/'config.json',cfg)
         if args.import_legacy:result['import']=w.import_legacy()
@@ -74,7 +73,6 @@ def main(argv=None):
         else:
             result=reviews.create(title=args.title,batch_id=args.turn,experiments=args.experiment,references=args.reference,labels=read_json(args.labels) if args.labels else None)
             result['url']=f'http://127.0.0.1:8767/reviews?review={result["review_id"]}'
-    elif args.cmd=='drive-plan':result=w.drive_plan(args.turn)
     elif args.cmd=='doctor':
         from .comfy import request
         result={'workspace':str(w.root),'styles':len(w.styles()),'python_only_ui':True,'comfy_url':w.config().get('comfy_url','http://127.0.0.1:8188')}

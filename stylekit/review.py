@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import mimetypes
 import re
+import subprocess
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -148,7 +150,37 @@ class ReviewStore:
                               f'Experiment: `{item["experiment_id"]}`', f'Image: `{item["path"]}`', item["note"], ""]
                 lines += ["## 全体メモ", draft["overall_note"], ""]
                 atomic_write_text(folder / "feedback.md", "\n".join(lines))
+        if submit:
+            self._run_submit_hook(review_id, folder, feedback)
         return self.get(review_id)
+
+    def _run_submit_hook(self, review_id: str, folder: Path, feedback: dict) -> None:
+        from .workspace import Workspace
+        hook = Workspace(self.root).data / "hooks" / "on_review_submit.py"
+        if not hook.is_file():
+            return
+        event = {
+            "workspace": str(self.root),
+            "review_id": review_id,
+            "title": feedback["title"],
+            "revision": feedback["revision"],
+            "submitted_at": feedback["submitted_at"],
+            "feedback_path": str(folder / "feedback.json"),
+            "markdown_path": str(folder / "feedback.md"),
+        }
+        try:
+            subprocess.run(
+                [sys.executable, "-B", str(hook)],
+                cwd=self.root,
+                input=json.dumps(event, ensure_ascii=False),
+                text=True,
+                encoding="utf-8",
+                timeout=10,
+                capture_output=True,
+                check=False,
+            )
+        except Exception:
+            pass
 
     def image(self, review_id: str, number: int) -> Path:
         review = self.get(review_id)

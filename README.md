@@ -51,7 +51,7 @@ The included generator connects to an existing **ComfyUI** server. Supply your o
 
 Arbitrary architectures and arbitrary uploaded workflow graphs are not universally supported. Your agent can prepare generation outside the built-in adapter and register images with their workflow, but it must record the actual settings. The viewer works without ComfyUI.
 
-Google Drive is optional. `drive-plan` reports the exact image-only folder layout for a connected agent to synchronize. The kit contains no Drive credentials or personal folder IDs and does not require a particular Drive CLI.
+Project instructions (`AGENTS.md`) and `.agents/skills/stylefork-project/SKILL.md` are created as standard templates on first initialization and preserved on subsequent `init` runs, so each project can customize its own agent rules, extra skills, or optional local `.stylefork/hooks/on_review_submit.py` hook.
 
 ## Data stays separate
 
@@ -66,7 +66,7 @@ my-art/
 
 The shared kit and ComfyUI can live outside every creation project. Each project stores `kit_home`, optional `comfy_home`, and `comfy_url` in its hidden configuration. To launch the kit from a project, use `python .agents/stylefork.py serve`. Workflows stay under `.stylefork/workflows/` rather than beside the visible images.
 
-Use a single turn folder for all batches generated in one exchange. Drive image directories mirror the relative hierarchy below `output/`; JSON and research documents remain local. Existing research workspaces with `.research/state.json` can be imported and reviewed without publishing their contents. See [migration](docs/MIGRATION.md).
+Use a single turn folder for all batches generated in one exchange. Existing research workspaces with `.research/state.json` can be imported and reviewed without publishing their contents. See [migration](docs/MIGRATION.md).
 
 ## Development
 

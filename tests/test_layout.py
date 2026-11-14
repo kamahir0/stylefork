@@ -22,6 +22,8 @@ class LayoutTests(unittest.TestCase):
             self.assertIn('session fork',skill)
             self.assertIn('requirements',skill)
             self.assertNotIn('Read the repository `AGENTS.md`',skill)
+            self.assertNotIn('drive',skill.lower())
+            self.assertNotIn('drive',(root/'AGENTS.md').read_text(encoding='utf-8').lower())
             self.assertTrue((root/'.agents/skills/stylefork-project/agents/openai.yaml').is_file())
             process=subprocess.run([sys.executable,'-B',str(root/'.agents/stylefork.py'),'style','list'],cwd=root,capture_output=True,text=True,encoding='utf-8')
             self.assertEqual(process.returncode,0,process.stderr)

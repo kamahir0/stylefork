@@ -41,7 +41,7 @@ class Workspace:
     def init(self):
         self.data.mkdir(parents=True,exist_ok=True)
         if not (self.data/'config.json').exists():
-            create_json(self.data/'config.json',{'schema_version':2,'kit_home':str(Path(__file__).resolve().parents[1]),'comfy_home':None,'comfy_url':'http://127.0.0.1:8188','drive_folder_id':None,'timezone_offset_minutes':None})
+            create_json(self.data/'config.json',{'schema_version':2,'kit_home':str(Path(__file__).resolve().parents[1]),'comfy_home':None,'comfy_url':'http://127.0.0.1:8188','timezone_offset_minutes':None})
         self.output.mkdir(parents=True,exist_ok=True);self.styles_dir.mkdir(parents=True,exist_ok=True)
         if self.data.name=='.stylefork':
             from .layout import scaffold
@@ -208,8 +208,3 @@ class Workspace:
             present={item['path'] for item in result}
             result += [item for item in read_json(media) if item['path'] not in present and (not track_id or item.get('track_id')==track_id)]
         return result
-
-    def drive_plan(self,turn_id):
-        turn=self.turn(turn_id);folder=self.root/turn['output_dir'];relative=folder.relative_to(self.output).as_posix()
-        return {'drive_folder_id':self.config().get('drive_folder_id'),'remote_directory':relative,
-                'files':[{'local_path':str(p),'remote_path':relative+'/'+p.name,'sha256':sha256_file(p)} for p in sorted(folder.iterdir()) if p.suffix.lower() in {'.png','.jpg','.jpeg','.webp'}]}

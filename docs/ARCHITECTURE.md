@@ -26,7 +26,7 @@ A review pins a numbered image set. Adding references appends numbers. Drafts ar
 
 - UI and runtime data require no third-party Python packages.
 - Host and Origin checks restrict local writes; image routes serve only allowlisted, workspace-contained files.
-- The UI contains no arbitrary command execution endpoint. Copying a request does not run an agent.
+- The UI contains no arbitrary command execution endpoint. Copying a request does not run an agent. If a creation project defines `.stylefork/hooks/on_review_submit.py`, submitting a review runs that local script with submission metadata on stdin after persisting `feedback.json`.
 - ComfyUI executes generation only through an explicit CLI action. The built-in graph targets standard SD/SDXL-style models; other architectures need their own adapter.
-- Drive synchronization is optional and agent-operated. No personal folder IDs or credentials are embedded in the code.
+- External storage or cloud synchronization is outside the kit's scope and belongs to project-specific agent instructions.
 - The release allowlist excludes runtime data, models, secrets and images. The source ZIP and installed wheel are tested independently.

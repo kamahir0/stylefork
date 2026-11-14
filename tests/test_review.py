@@ -64,6 +64,26 @@ class TestReview(unittest.TestCase):
         self.assertEqual(self.state.read_bytes(), self.before)
         self.assertIn("#01", (self.store._folder(rid)/"feedback.md").read_text(encoding="utf-8"))
 
+    def test_submit_invokes_optional_local_hook_not_on_draft(self):
+        hook = self.root / ".stylefork/hooks/on_review_submit.py"
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        marker = self.root / ".stylefork/hook_event.json"
+        hook.write_text(
+            "import pathlib, sys\n"
+            f"pathlib.Path({str(marker)!r}).write_text(sys.stdin.read(), encoding='utf-8')\n",
+            encoding="utf-8",
+        )
+        review = self.store.create(title="Hook test", batch_id="b1")
+        rid = review["review_id"]
+        draft = self.store.save(rid, {"revision": 0, "overall_note": "draft only"}, submit=False)
+        self.assertFalse(marker.exists())
+        self.store.save(rid, {"revision": draft["draft"]["revision"], "overall_note": "submitted now"}, submit=True)
+        self.assertTrue(marker.is_file())
+        event = json.loads(marker.read_text(encoding="utf-8"))
+        self.assertEqual(event["review_id"], rid)
+        self.assertEqual(event["revision"], 2)
+        self.assertTrue(Path(event["feedback_path"]).is_file())
+
     def test_invalid_feedback_and_stale_tabs_rejected(self):
         review = self.store.create(title="評価", batch_id="b1")
         rid = review["review_id"]

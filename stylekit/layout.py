@@ -43,7 +43,7 @@ PROJECT_GUIDE = """# StyleFork creation project
 
 Use `python .agents/stylefork.py <command...>` from this project. The helper selects this project and finds the external shared kit via `.stylefork/config.json`.
 
-Read `.agents/skills/stylefork-project/SKILL.md` for image generation, review and explicit style saving. The shared kit's AGENTS.md is for kit development; it is not a dependency of this creation workflow.
+Read `.agents/skills/stylefork-project/SKILL.md` for image generation, review and explicit style saving. The shared kit's AGENTS.md is for kit development; it is not a dependency of this creation workflow. This `AGENTS.md` and `.agents/` are initialized with standard defaults and may be customized for project- or user-specific workflows; `init` preserves existing instructions and skills.
 
 Keep images in `output/<concept>/<turn>/`, immutable saved styles in `styles/`, and all internal state under `.stylefork/`. Use explicit session and turn IDs. Requirements and one-off exclusions belong to the session. Generation and evaluation never edit a saved style; only an explicit user save request creates a fork. Review current and past images with stable short numbers.
 

@@ -31,6 +31,6 @@ When the user explicitly asks to save an atmosphere/style, select the relevant s
 
 Never edit saved style JSON, overwrite a style ID, recompute a hash to hide edits, or change another session's base. Saving a fork does not automatically select it elsewhere. A positive review, a favorite image or a successful generation alone does not create a fork.
 
-## Optional Google Drive
+## Project customization
 
-Use `drive-plan --turn <id>` for an image-only synchronization plan. If a Drive connector is available and the user wants synchronization, verify the destination root and create the same concept/turn hierarchy. Reuse verified existing file IDs for updates. Before moves, read current parents; after writes, verify folder placement. Keep documents, model files and credentials local. Do not assume a personal Drive root or a particular Drive CLI.
+`init` creates a standard project `AGENTS.md` and this skill if they do not exist, and preserves them on subsequent runs. Projects may customize `AGENTS.md`, add project-specific skills or scripts under `.agents/`, or place an optional local hook at `.stylefork/hooks/on_review_submit.py` (invoked with JSON on stdin when a review submission is saved) while keeping saved styles immutable and session work isolated.

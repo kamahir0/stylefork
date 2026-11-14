@@ -78,8 +78,9 @@ class WorkflowTests(unittest.TestCase):
         review=reviews.save(review['review_id'],{'revision':0,'ratings':{'1':{'verdict':'good','note':'Eyes look good'}}},submit=True)
         self.assertEqual(review['submitted']['items'][0]['experiment_id'],run['run_id'])
         self.assertEqual(reviews.image(review['review_id'],1).read_bytes(),raw)
-        plan=self.w.drive_plan(turn['turn_id']);self.assertIsNone(plan['drive_folder_id'])
-        self.assertTrue(plan['files'][0]['remote_path'].startswith('concept/'+turn['turn_id']+'/'))
+        self.assertFalse(hasattr(self.w,'drive_plan'))
+        self.assertNotIn('drive_folder_id',self.w.config())
+        self.assertTrue(run['outputs'][0]['path'].startswith('output/concept/'+turn['turn_id']+'/'))
         self.assertEqual(len(self.w.styles()),2)
 
     def test_path_traversal_is_rejected(self):

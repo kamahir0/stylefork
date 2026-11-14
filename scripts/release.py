@@ -15,7 +15,7 @@ def sources(root=ROOT):
     return sorted(set(paths))
 
 def build(root=ROOT):
-    destination=root/'dist';destination.mkdir(exist_ok=True);name='stylefork-0.2.1';archive=destination/(name+'.zip')
+    destination=root/'dist';destination.mkdir(exist_ok=True);name='stylefork-0.2.2';archive=destination/(name+'.zip')
     manifest={}
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as output:
         for path in sources(root):
