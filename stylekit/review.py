@@ -223,8 +223,16 @@ class ReviewStore:
             "markdown_path": str(folder / "feedback.md"),
         }
         try:
+            exe = sys.executable
+            if os.name == "nt":
+                pyw = Path(sys.executable).with_name("pythonw.exe")
+                if pyw.is_file():
+                    exe = str(pyw)
+            kwargs = {}
+            if os.name == "nt":
+                kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             subprocess.run(
-                [sys.executable, "-B", str(hook)],
+                [exe, "-B", str(hook)],
                 cwd=self.root,
                 input=json.dumps(event, ensure_ascii=False),
                 text=True,
@@ -232,6 +240,7 @@ class ReviewStore:
                 timeout=3,
                 capture_output=True,
                 check=False,
+                **kwargs,
             )
         except Exception:
             pass

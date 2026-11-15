@@ -742,7 +742,7 @@ function bind() {
       setTimeout(() => {
         try { window.open('', '_self'); } catch (_) {}
         try { window.close(); } catch (_) {}
-      }, 120);
+      }, 40);
       setTimeout(() => {
         showToast('評価を確定しました（AI セッションが自動で続行します）');
       }, 320);
